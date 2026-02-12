@@ -25,15 +25,27 @@ const categoryOptions = [
   { value: "ecommerce", label: "E-commerce", icon: ShoppingBag },
 ];
 
+/** Generate a suggested acronym from product name initials */
+const generateAcronym = (name: string): string => {
+  return name
+    .split(/\s+/)
+    .filter((w) => w.length > 0)
+    .map((w) => w[0].toUpperCase())
+    .join("")
+    .slice(0, 6);
+};
+
 const CreateProductDialog = ({ open, onOpenChange }: CreateProductDialogProps) => {
   const [step, setStep] = useState(1);
   const [productName, setProductName] = useState("");
+  const [acronym, setAcronym] = useState("");
   const [category, setCategory] = useState("");
   const [showFormPopup, setShowFormPopup] = useState(false);
 
   const reset = () => {
     setStep(1);
     setProductName("");
+    setAcronym("");
     setCategory("");
     setShowFormPopup(false);
   };
@@ -41,6 +53,11 @@ const CreateProductDialog = ({ open, onOpenChange }: CreateProductDialogProps) =
   const handleClose = (val: boolean) => {
     if (!val) reset();
     onOpenChange(val);
+  };
+
+  const handleNameChange = (value: string) => {
+    setProductName(value);
+    setAcronym(generateAcronym(value));
   };
 
   const handleCategorySelect = (value: string) => {
@@ -51,8 +68,7 @@ const CreateProductDialog = ({ open, onOpenChange }: CreateProductDialogProps) =
   };
 
   const handleFinish = () => {
-    // TODO: integrate with backend
-    console.log("Product created:", { productName, category });
+    console.log("Product created:", { productName, acronym, category });
     handleClose(false);
   };
 
@@ -66,7 +82,7 @@ const CreateProductDialog = ({ open, onOpenChange }: CreateProductDialogProps) =
             </DialogTitle>
             <DialogDescription>
               {step === 1
-                ? "Dê um nome ao seu produto."
+                ? "Dê um nome ao seu produto e defina a sigla."
                 : "Selecione a categoria do produto."}
             </DialogDescription>
           </DialogHeader>
@@ -77,11 +93,28 @@ const CreateProductDialog = ({ open, onOpenChange }: CreateProductDialogProps) =
                 <Label htmlFor="product-name">Nome do produto</Label>
                 <Input
                   id="product-name"
-                  placeholder="Ex: Curso de Marketing Digital"
+                  placeholder="Ex: Método Viver de Piercing"
                   value={productName}
-                  onChange={(e) => setProductName(e.target.value)}
+                  onChange={(e) => handleNameChange(e.target.value)}
                   autoFocus
                 />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="product-acronym">Sigla do produto</Label>
+                <Input
+                  id="product-acronym"
+                  placeholder="Ex: MVP"
+                  value={acronym}
+                  onChange={(e) => setAcronym(e.target.value.toUpperCase())}
+                  maxLength={6}
+                  className="font-mono uppercase tracking-widest"
+                />
+                <p className="text-xs text-muted-foreground">
+                  A sigla será usada na nomenclatura dos criativos. Ex:{" "}
+                  <span className="font-mono font-semibold text-primary">
+                    {acronym || "..."} | ADV001
+                  </span>
+                </p>
               </div>
             </div>
           )}
@@ -121,7 +154,7 @@ const CreateProductDialog = ({ open, onOpenChange }: CreateProductDialogProps) =
             {step === 1 ? (
               <Button
                 className="ml-auto"
-                disabled={!productName.trim()}
+                disabled={!productName.trim() || !acronym.trim()}
                 onClick={() => setStep(2)}
               >
                 Próximo <ArrowRight className="h-4 w-4 ml-1" />
