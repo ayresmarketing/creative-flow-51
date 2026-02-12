@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Layout from "@/components/Layout";
+import CreateProductDialog from "@/components/CreateProductDialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -72,6 +73,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [createOpen, setCreateOpen] = useState(false);
 
   const filteredProducts = mockProducts.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -89,6 +91,7 @@ const Dashboard = () => {
 
   return (
     <Layout>
+      <CreateProductDialog open={createOpen} onOpenChange={setCreateOpen} />
       <div className="p-8 space-y-8">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -99,7 +102,7 @@ const Dashboard = () => {
             </p>
           </div>
           <Button 
-            onClick={() => navigate("/products/new")}
+            onClick={() => setCreateOpen(true)}
             className="hub-shadow gap-2"
           >
             <Plus className="h-4 w-4" />
@@ -284,7 +287,7 @@ const Dashboard = () => {
                   : "Comece criando seu primeiro produto."}
               </p>
               {!searchTerm && statusFilter === "all" && (
-                <Button onClick={() => navigate("/products/new")}>
+                <Button onClick={() => setCreateOpen(true)}>
                   <Plus className="h-4 w-4 mr-2" />
                   Criar Primeiro Produto
                 </Button>
