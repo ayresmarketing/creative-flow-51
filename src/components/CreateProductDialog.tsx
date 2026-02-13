@@ -32,7 +32,7 @@ const generateAcronym = (name: string): string => {
     .filter((w) => w.length > 0)
     .map((w) => w[0].toUpperCase())
     .join("")
-    .slice(0, 6);
+    .slice(0, 4);
 };
 
 const CreateProductDialog = ({ open, onOpenChange }: CreateProductDialogProps) => {
@@ -106,8 +106,8 @@ const CreateProductDialog = ({ open, onOpenChange }: CreateProductDialogProps) =
                   placeholder="Ex: MVP"
                   value={acronym}
                   onChange={(e) => setAcronym(e.target.value.toUpperCase())}
-                  maxLength={6}
-                  className="font-mono uppercase tracking-widest"
+                  maxLength={4}
+                  className="font-mono uppercase"
                 />
                 <p className="text-xs text-muted-foreground">
                   A sigla será usada na nomenclatura dos criativos. Ex:{" "}

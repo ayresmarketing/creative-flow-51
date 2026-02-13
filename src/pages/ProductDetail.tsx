@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Plus, Search, Image, Video, Layers, Download, Eye, Edit, MoreVertical, Calendar, 
   Play, ArrowLeft, Table as TableIcon, LayoutGrid, CheckCircle2, Circle
@@ -31,7 +32,7 @@ const mockProduct = {
 const mockCreatives = [
   {
     id: "1",
-    code: "MVP | ADF001",
+    code: "MVP | Vendas | ADF001",
     type: "PHOTO",
     objective: "Vendas",
     formats: ["Feed", "Stories"],
@@ -43,7 +44,7 @@ const mockCreatives = [
   },
   {
     id: "2",
-    code: "MVP | ADV001",
+    code: "MVP | Conteúdo | ADV001",
     type: "VIDEO",
     objective: "Conteúdo",
     formats: ["Feed", "Stories"],
@@ -51,14 +52,12 @@ const mockCreatives = [
     createdAt: "2024-01-14",
     thumbnail: "/placeholder.svg",
     duration: 15,
-    publicationIds: [
-      { platform: "META", id: "23849583750", note: "Stories principal" },
-    ],
+    publicationIds: [{ platform: "META", id: "23849583750", note: "Stories principal" }],
     notes: "Vídeo demonstrando o produto em uso",
   },
   {
     id: "3",
-    code: "MVP | ADC001",
+    code: "MVP | Remarketing | ADC001",
     type: "CAROUSEL",
     objective: "Remarketing",
     formats: ["Feed"],
@@ -71,7 +70,7 @@ const mockCreatives = [
   },
   {
     id: "4",
-    code: "MVP | ADV002",
+    code: "MVP | Captação | ADV001",
     type: "VIDEO",
     objective: "Captação",
     formats: ["Feed"],
@@ -91,6 +90,14 @@ const ProductDetail = () => {
   const [typeFilter, setTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
+  const [objectiveTab, setObjectiveTab] = useState("Todos");
+
+  const objectiveCategories = ["Todos", "Vendas", "Conteúdo", "Lembrete", "Remarketing", "Captação", "Carrinho Aberto", "Outro"];
+
+  const getObjectiveCount = (obj: string) => {
+    if (obj === "Todos") return mockCreatives.length;
+    return mockCreatives.filter((c) => c.objective === obj).length;
+  };
 
   const filteredCreatives = mockCreatives.filter((creative) => {
     const matchesSearch =
@@ -98,7 +105,8 @@ const ProductDetail = () => {
       creative.objective.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = typeFilter === "all" || creative.type.toLowerCase() === typeFilter;
     const matchesStatus = statusFilter === "all" || creative.status.toLowerCase() === statusFilter;
-    return matchesSearch && matchesType && matchesStatus;
+    const matchesObjective = objectiveTab === "Todos" || creative.objective === objectiveTab;
+    return matchesSearch && matchesType && matchesStatus && matchesObjective;
   });
 
   const getTypeIcon = (type: string) => {
@@ -234,6 +242,33 @@ const ProductDetail = () => {
             </div>
           </CardContent>
         </Card>
+
+        {/* Objective Tabs */}
+        <div className="overflow-x-auto">
+          <TabsList className="inline-flex h-auto flex-wrap gap-1 bg-transparent p-0">
+            {objectiveCategories.map((obj) => {
+              const count = getObjectiveCount(obj);
+              return (
+                <button
+                  key={obj}
+                  onClick={() => setObjectiveTab(obj)}
+                  className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-colors ${
+                    objectiveTab === obj
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground hover:bg-muted/80"
+                  }`}
+                >
+                  {obj}
+                  {count > 0 && (
+                    <Badge variant={objectiveTab === obj ? "secondary" : "outline"} className="text-xs px-1.5 py-0 min-w-[20px] justify-center">
+                      {count}
+                    </Badge>
+                  )}
+                </button>
+              );
+            })}
+          </TabsList>
+        </div>
 
         {/* TABLE VIEW */}
         {viewMode === "table" && filteredCreatives.length > 0 && (
