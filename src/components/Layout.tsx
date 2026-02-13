@@ -4,9 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
+import ayresLogo from "@/assets/ayres-logo.png";
 import { 
   FolderOpen, 
   Users,
+  Shield,
   LogOut,
   User,
   Crown
@@ -23,18 +25,14 @@ const Layout = ({ children }: LayoutProps) => {
 
   const isActive = (path: string) => location.pathname === path || location.pathname.startsWith(path + "/");
 
-  const navigation = [
-    {
-      name: "Produtos",
-      href: "/products",
-      icon: FolderOpen,
-    },
-    ...(user?.role === "GESTOR" ? [{
-      name: "Clientes",
-      href: "/clients",
-      icon: Users,
-    }] : []),
-  ];
+  const navigation = user?.role === "GESTOR"
+    ? [
+        { name: "Clientes", href: "/clients", icon: Users },
+        { name: "Gestores", href: "/gestores", icon: Shield },
+      ]
+    : [
+        { name: "Produtos", href: "/products", icon: FolderOpen },
+      ];
 
   const handleLogout = () => {
     logout();
@@ -48,12 +46,10 @@ const Layout = ({ children }: LayoutProps) => {
         <div className="flex flex-col h-full">
           {/* Logo */}
           <div className="flex items-center gap-3 px-6 py-5 border-b border-border">
-            <div className="w-8 h-8 hub-gradient rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">AH</span>
-            </div>
+            <img src={ayresLogo} alt="Ayres Marketing" className="w-8 h-8 rounded-lg object-contain" />
             <div>
-              <h1 className="font-semibold text-foreground">Ayres Hub</h1>
-              <p className="text-xs text-muted-foreground">Creative Management</p>
+              <h1 className="font-semibold text-foreground">Ayres Marketing</h1>
+              <p className="text-xs text-muted-foreground">Controle de Criativos</p>
             </div>
           </div>
 

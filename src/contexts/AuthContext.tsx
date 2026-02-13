@@ -17,6 +17,7 @@ interface AuthContextType {
   login: (email: string, password: string) => AppUser | null;
   logout: () => void;
   addClient: (name: string, email: string) => { user: AppUser; generatedPassword: string };
+  addGestor: (name: string, email: string) => { user: AppUser; generatedPassword: string };
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -87,8 +88,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     []
   );
 
+  const addGestor = useCallback(
+    (name: string, email: string) => {
+      const generatedPassword = generatePassword();
+      const newUser: AppUser = {
+        id: `gestor-${Date.now()}`,
+        name,
+        email,
+        password: generatedPassword,
+        role: "GESTOR",
+      };
+      setUsers((prev) => [...prev, newUser]);
+      return { user: newUser, generatedPassword };
+    },
+    []
+  );
+
   return (
-    <AuthContext.Provider value={{ user, users, login, logout, addClient }}>
+    <AuthContext.Provider value={{ user, users, login, logout, addClient, addGestor }}>
       {children}
     </AuthContext.Provider>
   );

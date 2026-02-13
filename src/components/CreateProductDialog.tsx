@@ -110,7 +110,7 @@ const CreateProductDialog = ({ open, onOpenChange }: CreateProductDialogProps) =
                   className="font-mono uppercase"
                 />
                 <p className="text-xs text-muted-foreground">
-                  A sigla será usada na nomenclatura dos criativos. Ex:{" "}
+                  Mínimo de 3 caracteres. A sigla será usada na nomenclatura dos criativos. Ex:{" "}
                   <span className="font-mono font-semibold text-primary">
                     {acronym || "..."} | ADV001
                   </span>
@@ -154,7 +154,7 @@ const CreateProductDialog = ({ open, onOpenChange }: CreateProductDialogProps) =
             {step === 1 ? (
               <Button
                 className="ml-auto"
-                disabled={!productName.trim() || !acronym.trim()}
+                disabled={!productName.trim() || !acronym.trim() || acronym.trim().length < 3}
                 onClick={() => setStep(2)}
               >
                 Próximo <ArrowRight className="h-4 w-4 ml-1" />

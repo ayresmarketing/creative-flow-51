@@ -9,6 +9,7 @@ import Dashboard from "./pages/Dashboard";
 import ProductDetail from "./pages/ProductDetail";
 import CreativeUpload from "./pages/CreativeUpload";
 import Clients from "./pages/Clients";
+import Gestores from "./pages/Gestores";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -28,6 +29,7 @@ const App = () => (
             <Route path="/products/:id" element={<ProductDetail />} />
             <Route path="/products/:id/upload" element={<CreativeUpload />} />
             <Route path="/clients" element={<Clients />} />
+            <Route path="/gestores" element={<Gestores />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
