@@ -5,8 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
+import {
   Plus, Search, Image, Video, Layers, Download, Eye, Edit, MoreVertical, Calendar, 
   Play, ArrowLeft, Table as TableIcon, LayoutGrid, CheckCircle2, Circle
 } from "lucide-react";
@@ -245,7 +244,7 @@ const ProductDetail = () => {
 
         {/* Objective Tabs */}
         <div className="overflow-x-auto">
-          <TabsList className="inline-flex h-auto flex-wrap gap-1 bg-transparent p-0">
+          <div className="inline-flex h-auto flex-wrap gap-1 p-0">
             {objectiveCategories.map((obj) => {
               const count = getObjectiveCount(obj);
               return (
@@ -267,7 +266,7 @@ const ProductDetail = () => {
                 </button>
               );
             })}
-          </TabsList>
+          </div>
         </div>
 
         {/* TABLE VIEW */}
