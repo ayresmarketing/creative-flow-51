@@ -14,16 +14,210 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      clients: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          name: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          name: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      creative_files: {
+        Row: {
+          created_at: string
+          creative_id: string
+          file_name: string | null
+          file_path: string
+          file_size: number | null
+          format: string
+          id: string
+          position: number
+        }
+        Insert: {
+          created_at?: string
+          creative_id: string
+          file_name?: string | null
+          file_path: string
+          file_size?: number | null
+          format: string
+          id?: string
+          position?: number
+        }
+        Update: {
+          created_at?: string
+          creative_id?: string
+          file_name?: string | null
+          file_path?: string
+          file_size?: number | null
+          format?: string
+          id?: string
+          position?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "creative_files_creative_id_fkey"
+            columns: ["creative_id"]
+            isOneToOne: false
+            referencedRelation: "creatives"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      creatives: {
+        Row: {
+          code: string
+          created_at: string
+          formats: string[]
+          id: string
+          notes: string | null
+          objective: string
+          product_id: string
+          status: string
+          type: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          formats?: string[]
+          id?: string
+          notes?: string | null
+          objective: string
+          product_id: string
+          status?: string
+          type: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          formats?: string[]
+          id?: string
+          notes?: string | null
+          objective?: string
+          product_id?: string
+          status?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "creatives_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      products: {
+        Row: {
+          acronym: string
+          category: string
+          client_id: string
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          acronym: string
+          category: string
+          client_id: string
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          acronym?: string
+          category?: string
+          client_id?: string
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "products_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "gestor" | "cliente"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +344,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["gestor", "cliente"],
+    },
   },
 } as const
