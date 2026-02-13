@@ -4,12 +4,13 @@ import Layout from "@/components/Layout";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
   Plus, Search, Image, Video, Layers, MoreVertical, Calendar,
-  Play, ArrowLeft, Table as TableIcon, LayoutGrid, CheckCircle2, Circle
+  Play, ArrowLeft, Table as TableIcon, LayoutGrid, CheckCircle2, Circle,
+  Eye, Trash2, Download
 } from "lucide-react";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -20,7 +21,12 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import CreativePreviewDialog from "@/components/CreativePreviewDialog";
 
 interface Creative {
   id: string;
@@ -31,6 +37,7 @@ interface Creative {
   status: string;
   created_at: string;
   notes: string | null;
+  thumbnail_url?: string | null;
 }
 
 interface ProductData {
@@ -55,6 +62,14 @@ const ProductDetail = () => {
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
   const [objectiveTab, setObjectiveTab] = useState("Todos");
 
+  // Preview dialog
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewCreative, setPreviewCreative] = useState<Creative | null>(null);
+
+  // Delete dialog
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteCreativeId, setDeleteCreativeId] = useState<string | null>(null);
+
   const objectiveCategories = ["Todos", "Vendas", "Conteúdo", "Lembrete", "Remarketing", "Captação", "Carrinho Aberto", "Outro"];
 
   const fetchData = useCallback(async () => {
@@ -64,7 +79,26 @@ const ProductDetail = () => {
       supabase.from("creatives").select("*").eq("product_id", id).order("created_at", { ascending: false }),
     ]);
     setProduct(prodRes.data);
-    setCreatives(creatRes.data || []);
+
+    // Fetch thumbnails for each creative
+    const creativesData = creatRes.data || [];
+    const creativesWithThumbs = await Promise.all(
+      creativesData.map(async (c) => {
+        const { data: files } = await supabase
+          .from("creative_files")
+          .select("file_path")
+          .eq("creative_id", c.id)
+          .order("position")
+          .limit(1);
+        let thumbnail_url: string | null = null;
+        if (files && files.length > 0) {
+          const { data } = supabase.storage.from("creatives").getPublicUrl(files[0].file_path);
+          thumbnail_url = data.publicUrl;
+        }
+        return { ...c, thumbnail_url };
+      })
+    );
+    setCreatives(creativesWithThumbs);
     setLoading(false);
   }, [id]);
 
@@ -80,6 +114,56 @@ const ProductDetail = () => {
       return;
     }
     setCreatives(prev => prev.map(c => c.id === creativeId ? { ...c, status: newStatus } : c));
+  };
+
+  const handleDelete = async () => {
+    if (!deleteCreativeId) return;
+    // Delete files from storage first
+    const { data: files } = await supabase
+      .from("creative_files")
+      .select("file_path")
+      .eq("creative_id", deleteCreativeId);
+
+    if (files && files.length > 0) {
+      await supabase.storage.from("creatives").remove(files.map(f => f.file_path));
+    }
+
+    // Delete creative_files records
+    await supabase.from("creative_files").delete().eq("creative_id", deleteCreativeId);
+    // Delete creative
+    const { error } = await supabase.from("creatives").delete().eq("id", deleteCreativeId);
+    if (error) {
+      toast({ title: "Erro ao excluir criativo", variant: "destructive" });
+    } else {
+      setCreatives(prev => prev.filter(c => c.id !== deleteCreativeId));
+      toast({ title: "Criativo excluído com sucesso" });
+    }
+    setDeleteOpen(false);
+    setDeleteCreativeId(null);
+  };
+
+  const handleDownload = async (creative: Creative) => {
+    const { data: files } = await supabase
+      .from("creative_files")
+      .select("file_path, file_name")
+      .eq("creative_id", creative.id)
+      .order("position");
+
+    if (!files || files.length === 0) {
+      toast({ title: "Nenhum arquivo encontrado", variant: "destructive" });
+      return;
+    }
+
+    for (const file of files) {
+      const { data } = supabase.storage.from("creatives").getPublicUrl(file.file_path);
+      const link = document.createElement("a");
+      link.href = data.publicUrl;
+      link.download = file.file_name || "creative-file";
+      link.target = "_blank";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
   };
 
   const getObjectiveCount = (obj: string) => {
@@ -123,6 +207,35 @@ const ProductDetail = () => {
     }
   };
 
+  const CreativeDropdownMenu = ({ creative }: { creative: Creative }) => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="sm" className="h-6 w-6 p-0 shrink-0">
+          <MoreVertical className="h-3.5 w-3.5" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={() => { setPreviewCreative(creative); setPreviewOpen(true); }}>
+          <Eye className="h-4 w-4 mr-2" /> Pré-visualizar
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => handleDownload(creative)}>
+          <Download className="h-4 w-4 mr-2" /> Baixar
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          className="text-destructive focus:text-destructive"
+          onClick={() => { setDeleteCreativeId(creative.id); setDeleteOpen(true); }}
+        >
+          <Trash2 className="h-4 w-4 mr-2" /> Excluir
+        </DropdownMenuItem>
+        {user?.role === "GESTOR" && (
+          <DropdownMenuItem onClick={() => toggleStatus(creative.id, creative.status)}>
+            {creative.status === "PUBLISHED" ? "Marcar como Pendente" : "Marcar como Publicado"}
+          </DropdownMenuItem>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+
   if (loading) {
     return <Layout><div className="p-8 text-center text-muted-foreground">Carregando...</div></Layout>;
   }
@@ -142,9 +255,7 @@ const ProductDetail = () => {
           <div className="flex-1">
             <div className="flex items-center gap-3">
               <h1 className="text-3xl font-bold text-foreground">{product.name}</h1>
-              <Badge variant="outline" className="font-mono text-base px-3 py-1">
-                {product.acronym}
-              </Badge>
+              <Badge variant="outline" className="font-mono text-base px-3 py-1">{product.acronym}</Badge>
             </div>
             <p className="text-muted-foreground mt-1">
               {product.category} • Criado em {new Date(product.created_at).toLocaleDateString("pt-BR")}
@@ -234,7 +345,7 @@ const ProductDetail = () => {
                     <TableHead>Formatos</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Data</TableHead>
-                    {user?.role === "GESTOR" && <TableHead className="text-right">Ações</TableHead>}
+                    <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -279,22 +390,9 @@ const ProductDetail = () => {
                       <TableCell className="text-sm text-muted-foreground">
                         {new Date(creative.created_at).toLocaleDateString("pt-BR")}
                       </TableCell>
-                      {user?.role === "GESTOR" && (
-                        <TableCell className="text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
-                                <MoreVertical className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => toggleStatus(creative.id, creative.status)}>
-                                {creative.status === "PUBLISHED" ? "Marcar como Pendente" : "Marcar como Publicado"}
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      )}
+                      <TableCell className="text-right">
+                        <CreativeDropdownMenu creative={creative} />
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -305,43 +403,60 @@ const ProductDetail = () => {
 
         {/* GRID VIEW */}
         {viewMode === "grid" && filteredCreatives.length > 0 && (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
             {filteredCreatives.map((creative) => (
-              <Card key={creative.id} className="hub-card-shadow hover:shadow-md transition-shadow animate-fade-in overflow-hidden">
+              <Card
+                key={creative.id}
+                className="hub-card-shadow hover:shadow-md transition-shadow animate-fade-in overflow-hidden cursor-pointer group"
+                onClick={() => { setPreviewCreative(creative); setPreviewOpen(true); }}
+              >
                 <CardContent className="p-0">
-                  {/* Small thumbnail area */}
-                  <div className="relative h-28 bg-muted flex items-center justify-center">
-                    <span className={getTypeColor(creative.type)}>
-                      {creative.type === "VIDEO" ? <Play className="h-6 w-6" /> : getTypeIcon(creative.type)}
-                    </span>
+                  {/* Thumbnail */}
+                  <div className="relative h-24 bg-muted flex items-center justify-center overflow-hidden">
+                    {creative.thumbnail_url ? (
+                      <>
+                        {creative.type === "VIDEO" ? (
+                          <>
+                            <video
+                              src={creative.thumbnail_url}
+                              className="w-full h-full object-cover"
+                              muted
+                              preload="metadata"
+                            />
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                              <Play className="h-5 w-5 text-white fill-white" />
+                            </div>
+                          </>
+                        ) : (
+                          <img
+                            src={creative.thumbnail_url}
+                            alt={creative.code}
+                            className="w-full h-full object-cover"
+                          />
+                        )}
+                      </>
+                    ) : (
+                      <span className={`${getTypeColor(creative.type)} opacity-40`}>
+                        {creative.type === "VIDEO" ? <Play className="h-5 w-5" /> : getTypeIcon(creative.type)}
+                      </span>
+                    )}
+                    {/* Dropdown on hover */}
+                    <div
+                      className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <CreativeDropdownMenu creative={creative} />
+                    </div>
                   </div>
 
-                  <div className="p-3 space-y-2">
-                    <div className="flex items-start justify-between gap-1">
-                      <div className="min-w-0 flex-1">
-                        <p className="font-mono text-xs font-semibold text-foreground truncate">{creative.code}</p>
-                        <p className="text-xs text-muted-foreground">{creative.objective}</p>
-                      </div>
-                      {user?.role === "GESTOR" && (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0 shrink-0">
-                              <MoreVertical className="h-3.5 w-3.5" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => toggleStatus(creative.id, creative.status)}>
-                              {creative.status === "PUBLISHED" ? "Marcar como Pendente" : "Marcar como Publicado"}
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      )}
-                    </div>
+                  <div className="p-2.5 space-y-1.5">
+                    <p className="font-sans text-xs font-semibold text-foreground truncate leading-tight">{creative.code}</p>
+                    <p className="text-[11px] text-muted-foreground leading-tight">{creative.objective}</p>
 
                     <div className="flex items-center justify-between">
                       {user?.role === "GESTOR" ? (
                         <button
-                          onClick={() => toggleStatus(creative.id, creative.status)}
+                          onClick={(e) => { e.stopPropagation(); toggleStatus(creative.id, creative.status); }}
                           className="cursor-pointer hover:opacity-80 transition-opacity"
                         >
                           <Badge variant={creative.status === "PUBLISHED" ? "default" : "secondary"} className="text-[10px]">
@@ -391,6 +506,35 @@ const ProductDetail = () => {
           </Card>
         )}
       </div>
+
+      {/* Preview Dialog */}
+      {previewCreative && (
+        <CreativePreviewDialog
+          open={previewOpen}
+          onOpenChange={setPreviewOpen}
+          creativeId={previewCreative.id}
+          creativeCode={previewCreative.code}
+          creativeType={previewCreative.type}
+        />
+      )}
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir criativo</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir este criativo permanentemente? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Layout>
   );
 };
