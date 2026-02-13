@@ -16,14 +16,27 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
-  const handleLogin = (e: React.FormEvent) => {
+  const [loading, setLoading] = useState(false);
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    const result = login(email, password);
-    if (result) {
-      navigate("/products");
-    } else {
-      setError("Email ou senha inválidos");
+    setLoading(true);
+    try {
+      const result = await login(email, password);
+      if (result) {
+        if (result.role === "GESTOR") {
+          navigate("/clients");
+        } else {
+          navigate("/products");
+        }
+      } else {
+        setError("Email ou senha inválidos");
+      }
+    } catch {
+      setError("Erro ao fazer login. Tente novamente.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -89,8 +102,8 @@ const Login = () => {
                 </div>
               </div>
               {error && <p className="text-sm text-destructive text-center">{error}</p>}
-              <Button type="submit" className="w-full hub-shadow">
-                Entrar
+              <Button type="submit" className="w-full hub-shadow" disabled={loading}>
+                {loading ? "Entrando..." : "Entrar"}
               </Button>
             </form>
           </CardContent>
