@@ -17,26 +17,35 @@ import { useToast } from "@/hooks/use-toast";
 interface CreateClientDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onCreated?: () => void;
 }
 
-const CreateClientDialog = ({ open, onOpenChange }: CreateClientDialogProps) => {
+const CreateClientDialog = ({ open, onOpenChange, onCreated }: CreateClientDialogProps) => {
   const { addClient } = useAuth();
   const { toast } = useToast();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [generatedPassword, setGeneratedPassword] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !email.trim()) return;
-
-    const result = addClient(name.trim(), email.trim());
-    setGeneratedPassword(result.generatedPassword);
-    toast({
-      title: "Cliente cadastrado!",
-      description: `${name} foi adicionado com sucesso.`,
-    });
+    setSubmitting(true);
+    try {
+      const result = await addClient(name.trim(), email.trim());
+      setGeneratedPassword(result.generatedPassword);
+      toast({
+        title: "Cliente cadastrado!",
+        description: `${name} foi adicionado com sucesso.`,
+      });
+      onCreated?.();
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleCopy = () => {
@@ -95,7 +104,9 @@ const CreateClientDialog = ({ open, onOpenChange }: CreateClientDialogProps) => 
                 <Button type="button" variant="outline" onClick={handleClose}>
                   Cancelar
                 </Button>
-                <Button type="submit">Cadastrar</Button>
+                <Button type="submit" disabled={submitting}>
+                  {submitting ? "Cadastrando..." : "Cadastrar"}
+                </Button>
               </DialogFooter>
             </form>
           </>
