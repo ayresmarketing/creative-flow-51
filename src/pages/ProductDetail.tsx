@@ -1,12 +1,14 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Layout from "@/components/Layout";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
-  Plus, Search, Image, Video, Layers, Download, Eye, Edit, MoreVertical, Calendar, 
+  Plus, Search, Image, Video, Layers, MoreVertical, Calendar,
   Play, ArrowLeft, Table as TableIcon, LayoutGrid, CheckCircle2, Circle
 } from "lucide-react";
 import {
@@ -18,73 +20,35 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import { useToast } from "@/hooks/use-toast";
 
-// Mock data
-const mockProduct = {
-  id: "1",
-  name: "Método Viver de Piercing",
-  acronym: "MVP",
-  category: "Infoproduto",
-  createdAt: "2024-01-10",
-};
+interface Creative {
+  id: string;
+  code: string;
+  type: string;
+  objective: string;
+  formats: string[];
+  status: string;
+  created_at: string;
+  notes: string | null;
+}
 
-const mockCreatives = [
-  {
-    id: "1",
-    code: "MVP | Vendas | ADF001",
-    type: "PHOTO",
-    objective: "Vendas",
-    formats: ["Feed", "Stories"],
-    status: "PUBLISHED",
-    createdAt: "2024-01-15",
-    thumbnail: "/placeholder.svg",
-    publicationIds: [{ platform: "META", id: "23849583749", note: "Campanha principal" }],
-    notes: "Imagem principal do produto com fundo branco",
-  },
-  {
-    id: "2",
-    code: "MVP | Conteúdo | ADV001",
-    type: "VIDEO",
-    objective: "Conteúdo",
-    formats: ["Feed", "Stories"],
-    status: "PUBLISHED",
-    createdAt: "2024-01-14",
-    thumbnail: "/placeholder.svg",
-    duration: 15,
-    publicationIds: [{ platform: "META", id: "23849583750", note: "Stories principal" }],
-    notes: "Vídeo demonstrando o produto em uso",
-  },
-  {
-    id: "3",
-    code: "MVP | Remarketing | ADC001",
-    type: "CAROUSEL",
-    objective: "Remarketing",
-    formats: ["Feed"],
-    status: "PENDING",
-    createdAt: "2024-01-13",
-    thumbnail: "/placeholder.svg",
-    imageCount: 5,
-    publicationIds: [],
-    notes: "Carrossel com detalhes do produto",
-  },
-  {
-    id: "4",
-    code: "MVP | Captação | ADV001",
-    type: "VIDEO",
-    objective: "Captação",
-    formats: ["Feed"],
-    status: "PENDING",
-    createdAt: "2024-01-12",
-    thumbnail: "/placeholder.svg",
-    duration: 30,
-    publicationIds: [],
-    notes: "",
-  },
-];
+interface ProductData {
+  id: string;
+  name: string;
+  acronym: string;
+  category: string;
+  created_at: string;
+}
 
 const ProductDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [product, setProduct] = useState<ProductData | null>(null);
+  const [creatives, setCreatives] = useState<Creative[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -93,14 +57,38 @@ const ProductDetail = () => {
 
   const objectiveCategories = ["Todos", "Vendas", "Conteúdo", "Lembrete", "Remarketing", "Captação", "Carrinho Aberto", "Outro"];
 
-  const getObjectiveCount = (obj: string) => {
-    if (obj === "Todos") return mockCreatives.length;
-    return mockCreatives.filter((c) => c.objective === obj).length;
+  const fetchData = useCallback(async () => {
+    if (!id) return;
+    const [prodRes, creatRes] = await Promise.all([
+      supabase.from("products").select("*").eq("id", id).single(),
+      supabase.from("creatives").select("*").eq("product_id", id).order("created_at", { ascending: false }),
+    ]);
+    setProduct(prodRes.data);
+    setCreatives(creatRes.data || []);
+    setLoading(false);
+  }, [id]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const toggleStatus = async (creativeId: string, currentStatus: string) => {
+    const newStatus = currentStatus === "PUBLISHED" ? "PENDING" : "PUBLISHED";
+    const { error } = await supabase.from("creatives").update({ status: newStatus }).eq("id", creativeId);
+    if (error) {
+      toast({ title: "Erro ao atualizar status", variant: "destructive" });
+      return;
+    }
+    setCreatives(prev => prev.map(c => c.id === creativeId ? { ...c, status: newStatus } : c));
   };
 
-  const filteredCreatives = mockCreatives.filter((creative) => {
-    const matchesSearch =
-      creative.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  const getObjectiveCount = (obj: string) => {
+    if (obj === "Todos") return creatives.length;
+    return creatives.filter((c) => c.objective === obj).length;
+  };
+
+  const filteredCreatives = creatives.filter((creative) => {
+    const matchesSearch = creative.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
       creative.objective.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = typeFilter === "all" || creative.type.toLowerCase() === typeFilter;
     const matchesStatus = statusFilter === "all" || creative.status.toLowerCase() === statusFilter;
@@ -120,8 +108,8 @@ const ProductDetail = () => {
   const getTypeColor = (type: string) => {
     switch (type) {
       case "PHOTO": return "text-primary";
-      case "VIDEO": return "text-success";
-      case "CAROUSEL": return "text-warning";
+      case "VIDEO": return "text-green-600";
+      case "CAROUSEL": return "text-amber-600";
       default: return "text-primary";
     }
   };
@@ -135,33 +123,31 @@ const ProductDetail = () => {
     }
   };
 
-  const stats = {
-    total: mockCreatives.length,
-    photos: mockCreatives.filter((c) => c.type === "PHOTO").length,
-    videos: mockCreatives.filter((c) => c.type === "VIDEO").length,
-    carousels: mockCreatives.filter((c) => c.type === "CAROUSEL").length,
-    published: mockCreatives.filter((c) => c.status === "PUBLISHED").length,
-    pending: mockCreatives.filter((c) => c.status === "PENDING").length,
-  };
+  if (loading) {
+    return <Layout><div className="p-8 text-center text-muted-foreground">Carregando...</div></Layout>;
+  }
+
+  if (!product) {
+    return <Layout><div className="p-8 text-center text-muted-foreground">Produto não encontrado.</div></Layout>;
+  }
 
   return (
     <Layout>
-      <div className="p-8 space-y-8">
+      <div className="p-8 space-y-6">
         {/* Header */}
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="sm" onClick={() => navigate("/dashboard")} className="gap-2">
+          <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="gap-2">
             <ArrowLeft className="h-4 w-4" /> Voltar
           </Button>
           <div className="flex-1">
             <div className="flex items-center gap-3">
-              <h1 className="text-3xl font-bold text-foreground">{mockProduct.name}</h1>
+              <h1 className="text-3xl font-bold text-foreground">{product.name}</h1>
               <Badge variant="outline" className="font-mono text-base px-3 py-1">
-                {mockProduct.acronym}
+                {product.acronym}
               </Badge>
             </div>
             <p className="text-muted-foreground mt-1">
-              {mockProduct.category} • Criado em{" "}
-              {new Date(mockProduct.createdAt).toLocaleDateString("pt-BR")}
+              {product.category} • Criado em {new Date(product.created_at).toLocaleDateString("pt-BR")}
             </p>
           </div>
           <Button onClick={() => navigate(`/products/${id}/upload`)} className="hub-shadow gap-2">
@@ -169,41 +155,17 @@ const ProductDetail = () => {
           </Button>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
-          {[
-            { label: "Total", value: stats.total },
-            { label: "Fotos", value: stats.photos, icon: <Image className="h-4 w-4 text-primary" /> },
-            { label: "Vídeos", value: stats.videos, icon: <Video className="h-4 w-4 text-success" /> },
-            { label: "Carrosséis", value: stats.carousels, icon: <Layers className="h-4 w-4 text-warning" /> },
-            { label: "Publicados", value: stats.published, color: "text-success" },
-            { label: "Pendentes", value: stats.pending, color: "text-warning" },
-          ].map((s) => (
-            <Card key={s.label} className="hub-card-shadow">
-              <CardContent className="p-4 text-center">
-                <div className="flex items-center justify-center gap-1 mb-1">
-                  {s.icon}
-                  <p className={`text-2xl font-bold ${s.color || "text-foreground"}`}>{s.value}</p>
-                </div>
-                <p className="text-sm text-muted-foreground">{s.label}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        {/* Filters + View Toggle */}
+        {/* Filters */}
         <Card className="hub-card-shadow">
-          <CardContent className="p-6">
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="flex-1">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input placeholder="Buscar criativos..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" />
-                </div>
+          <CardContent className="p-4">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input placeholder="Buscar criativos..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" />
               </div>
               <div className="flex gap-2">
                 <Select value={typeFilter} onValueChange={setTypeFilter}>
-                  <SelectTrigger className="w-32"><SelectValue placeholder="Tipo" /></SelectTrigger>
+                  <SelectTrigger className="w-28"><SelectValue placeholder="Tipo" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos</SelectItem>
                     <SelectItem value="photo">Fotos</SelectItem>
@@ -212,7 +174,7 @@ const ProductDetail = () => {
                   </SelectContent>
                 </Select>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-32"><SelectValue placeholder="Status" /></SelectTrigger>
+                  <SelectTrigger className="w-28"><SelectValue placeholder="Status" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos</SelectItem>
                     <SelectItem value="published">Publicados</SelectItem>
@@ -220,20 +182,10 @@ const ProductDetail = () => {
                   </SelectContent>
                 </Select>
                 <div className="flex border rounded-md">
-                  <Button
-                    variant={viewMode === "grid" ? "default" : "ghost"}
-                    size="icon"
-                    className="rounded-r-none"
-                    onClick={() => setViewMode("grid")}
-                  >
+                  <Button variant={viewMode === "grid" ? "default" : "ghost"} size="icon" className="rounded-r-none h-9 w-9" onClick={() => setViewMode("grid")}>
                     <LayoutGrid className="h-4 w-4" />
                   </Button>
-                  <Button
-                    variant={viewMode === "table" ? "default" : "ghost"}
-                    size="icon"
-                    className="rounded-l-none"
-                    onClick={() => setViewMode("table")}
-                  >
+                  <Button variant={viewMode === "table" ? "default" : "ghost"} size="icon" className="rounded-l-none h-9 w-9" onClick={() => setViewMode("table")}>
                     <TableIcon className="h-4 w-4" />
                   </Button>
                 </div>
@@ -244,14 +196,14 @@ const ProductDetail = () => {
 
         {/* Objective Tabs */}
         <div className="overflow-x-auto">
-          <div className="inline-flex h-auto flex-wrap gap-1 p-0">
+          <div className="inline-flex flex-wrap gap-1">
             {objectiveCategories.map((obj) => {
               const count = getObjectiveCount(obj);
               return (
                 <button
                   key={obj}
                   onClick={() => setObjectiveTab(obj)}
-                  className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-colors ${
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
                     objectiveTab === obj
                       ? "bg-primary text-primary-foreground"
                       : "bg-muted text-muted-foreground hover:bg-muted/80"
@@ -259,7 +211,7 @@ const ProductDetail = () => {
                 >
                   {obj}
                   {count > 0 && (
-                    <Badge variant={objectiveTab === obj ? "secondary" : "outline"} className="text-xs px-1.5 py-0 min-w-[20px] justify-center">
+                    <Badge variant={objectiveTab === obj ? "secondary" : "outline"} className="text-xs px-1.5 py-0 min-w-[18px] justify-center">
                       {count}
                     </Badge>
                   )}
@@ -272,36 +224,30 @@ const ProductDetail = () => {
         {/* TABLE VIEW */}
         {viewMode === "table" && filteredCreatives.length > 0 && (
           <Card className="hub-card-shadow">
-            <CardHeader>
-              <CardTitle className="text-lg">Planilha de Criativos</CardTitle>
-              <CardDescription>Acompanhe todos os criativos e seu status de publicação</CardDescription>
-            </CardHeader>
             <CardContent className="p-0">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[200px]">Nomenclatura</TableHead>
+                    <TableHead>Nomenclatura</TableHead>
                     <TableHead>Tipo</TableHead>
                     <TableHead>Objetivo</TableHead>
                     <TableHead>Formatos</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Data</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
+                    {user?.role === "GESTOR" && <TableHead className="text-right">Ações</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredCreatives.map((creative) => (
-                    <TableRow key={creative.id} className="cursor-pointer hover:bg-muted/50">
-                      <TableCell className="font-mono font-semibold text-primary">
-                        {creative.code}
-                      </TableCell>
+                    <TableRow key={creative.id}>
+                      <TableCell className="font-mono font-semibold text-primary text-sm">{creative.code}</TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5">
                           <span className={getTypeColor(creative.type)}>{getTypeIcon(creative.type)}</span>
-                          <span>{getTypeLabel(creative.type)}</span>
+                          <span className="text-sm">{getTypeLabel(creative.type)}</span>
                         </div>
                       </TableCell>
-                      <TableCell>{creative.objective}</TableCell>
+                      <TableCell className="text-sm">{creative.objective}</TableCell>
                       <TableCell>
                         <div className="flex gap-1">
                           {creative.formats.map((f) => (
@@ -310,36 +256,45 @@ const ProductDetail = () => {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-2">
-                          {creative.status === "PUBLISHED" ? (
-                            <CheckCircle2 className="h-4 w-4 text-success" />
-                          ) : (
-                            <Circle className="h-4 w-4 text-warning" />
-                          )}
-                          <Badge variant={creative.status === "PUBLISHED" ? "default" : "secondary"}>
+                        {user?.role === "GESTOR" ? (
+                          <button
+                            onClick={() => toggleStatus(creative.id, creative.status)}
+                            className="flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition-opacity"
+                          >
+                            {creative.status === "PUBLISHED" ? (
+                              <CheckCircle2 className="h-4 w-4 text-green-600" />
+                            ) : (
+                              <Circle className="h-4 w-4 text-amber-500" />
+                            )}
+                            <Badge variant={creative.status === "PUBLISHED" ? "default" : "secondary"} className="text-xs">
+                              {creative.status === "PUBLISHED" ? "Publicado" : "Pendente"}
+                            </Badge>
+                          </button>
+                        ) : (
+                          <Badge variant={creative.status === "PUBLISHED" ? "default" : "secondary"} className="text-xs">
                             {creative.status === "PUBLISHED" ? "Publicado" : "Pendente"}
                           </Badge>
-                        </div>
+                        )}
                       </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {new Date(creative.createdAt).toLocaleDateString("pt-BR")}
+                      <TableCell className="text-sm text-muted-foreground">
+                        {new Date(creative.created_at).toLocaleDateString("pt-BR")}
                       </TableCell>
-                      <TableCell className="text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => navigate(`/creatives/${creative.id}`)}>
-                              <Eye className="h-4 w-4 mr-2" /> Visualizar
-                            </DropdownMenuItem>
-                            <DropdownMenuItem><Edit className="h-4 w-4 mr-2" /> Editar</DropdownMenuItem>
-                            <DropdownMenuItem><Download className="h-4 w-4 mr-2" /> Download</DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
+                      {user?.role === "GESTOR" && (
+                        <TableCell className="text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => toggleStatus(creative.id, creative.status)}>
+                                {creative.status === "PUBLISHED" ? "Marcar como Pendente" : "Marcar como Publicado"}
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>
@@ -349,80 +304,66 @@ const ProductDetail = () => {
         )}
 
         {/* GRID VIEW */}
-        {viewMode === "grid" && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        {viewMode === "grid" && filteredCreatives.length > 0 && (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             {filteredCreatives.map((creative) => (
-              <Card key={creative.id} className="hub-card-shadow hover:shadow-lg transition-shadow animate-fade-in">
+              <Card key={creative.id} className="hub-card-shadow hover:shadow-md transition-shadow animate-fade-in overflow-hidden">
                 <CardContent className="p-0">
-                  {/* Thumbnail */}
-                  <div className="relative aspect-square bg-muted rounded-t-lg overflow-hidden">
-                    <img src={creative.thumbnail} alt={creative.code} className="w-full h-full object-cover" />
-                    {creative.type === "VIDEO" && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                        <div className="p-3 bg-white/90 rounded-full">
-                          <Play className="h-6 w-6 text-primary" />
-                        </div>
-                      </div>
-                    )}
-                    {creative.type === "CAROUSEL" && (
-                      <div className="absolute top-2 right-2 bg-black/70 text-white px-2 py-1 rounded text-xs">
-                        {(creative as any).imageCount} imagens
-                      </div>
-                    )}
-                    {creative.type === "VIDEO" && (creative as any).duration && (
-                      <div className="absolute bottom-2 right-2 bg-black/70 text-white px-2 py-1 rounded text-xs">
-                        {(creative as any).duration}s
-                      </div>
-                    )}
+                  {/* Small thumbnail area */}
+                  <div className="relative h-28 bg-muted flex items-center justify-center">
+                    <span className={getTypeColor(creative.type)}>
+                      {creative.type === "VIDEO" ? <Play className="h-6 w-6" /> : getTypeIcon(creative.type)}
+                    </span>
                   </div>
 
-                  <div className="p-4 space-y-3">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className={getTypeColor(creative.type)}>{getTypeIcon(creative.type)}</div>
-                        <div>
-                          <p className="font-mono font-semibold text-foreground">{creative.code}</p>
-                          <p className="text-sm text-muted-foreground">{creative.objective}</p>
-                        </div>
+                  <div className="p-3 space-y-2">
+                    <div className="flex items-start justify-between gap-1">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-mono text-xs font-semibold text-foreground truncate">{creative.code}</p>
+                        <p className="text-xs text-muted-foreground">{creative.objective}</p>
                       </div>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => navigate(`/creatives/${creative.id}`)}>
-                            <Eye className="h-4 w-4 mr-2" /> Visualizar
-                          </DropdownMenuItem>
-                          <DropdownMenuItem><Edit className="h-4 w-4 mr-2" /> Editar</DropdownMenuItem>
-                          <DropdownMenuItem><Download className="h-4 w-4 mr-2" /> Download</DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      {user?.role === "GESTOR" && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0 shrink-0">
+                              <MoreVertical className="h-3.5 w-3.5" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => toggleStatus(creative.id, creative.status)}>
+                              {creative.status === "PUBLISHED" ? "Marcar como Pendente" : "Marcar como Publicado"}
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
                     </div>
 
                     <div className="flex items-center justify-between">
-                      <Badge variant={creative.status === "PUBLISHED" ? "default" : "secondary"}>
-                        {creative.status === "PUBLISHED" ? "Publicado" : "Pendente"}
-                      </Badge>
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <Calendar className="h-3 w-3" />
-                        {new Date(creative.createdAt).toLocaleDateString("pt-BR")}
-                      </div>
+                      {user?.role === "GESTOR" ? (
+                        <button
+                          onClick={() => toggleStatus(creative.id, creative.status)}
+                          className="cursor-pointer hover:opacity-80 transition-opacity"
+                        >
+                          <Badge variant={creative.status === "PUBLISHED" ? "default" : "secondary"} className="text-[10px]">
+                            {creative.status === "PUBLISHED" ? "Publicado" : "Pendente"}
+                          </Badge>
+                        </button>
+                      ) : (
+                        <Badge variant={creative.status === "PUBLISHED" ? "default" : "secondary"} className="text-[10px]">
+                          {creative.status === "PUBLISHED" ? "Publicado" : "Pendente"}
+                        </Badge>
+                      )}
+                      <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                        <Calendar className="h-2.5 w-2.5" />
+                        {new Date(creative.created_at).toLocaleDateString("pt-BR")}
+                      </span>
                     </div>
 
                     <div className="flex flex-wrap gap-1">
                       {creative.formats.map((format) => (
-                        <Badge key={format} variant="outline" className="text-xs">{format}</Badge>
+                        <Badge key={format} variant="outline" className="text-[10px] px-1.5 py-0">{format}</Badge>
                       ))}
                     </div>
-
-                    {creative.notes && (
-                      <div className="text-xs text-muted-foreground">
-                        <p className="font-medium mb-1">Observações:</p>
-                        <p>{creative.notes}</p>
-                      </div>
-                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -431,7 +372,7 @@ const ProductDetail = () => {
         )}
 
         {/* Empty State */}
-        {filteredCreatives.length === 0 && (
+        {filteredCreatives.length === 0 && !loading && (
           <Card className="hub-card-shadow">
             <CardContent className="p-12 text-center">
               <Image className="h-12 w-12 text-muted-foreground mx-auto mb-4" />

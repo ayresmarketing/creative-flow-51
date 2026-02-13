@@ -1,14 +1,16 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Layout from "@/components/Layout";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { 
-  Upload, Image, Video, Layers, ArrowLeft, Check, X, FileImage, FileVideo, ArrowUp, ArrowDown, GripVertical
+import {
+  Upload, Image, Video, Layers, ArrowLeft, Check, X, FileImage, FileVideo, ArrowUp, ArrowDown
 } from "lucide-react";
 
 type CreativeType = "PHOTO" | "VIDEO" | "CAROUSEL";
@@ -18,6 +20,7 @@ type FormatType = "Feed" | "Stories";
 const CreativeUpload = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   const [step, setStep] = useState(1);
   const [creativeType, setCreativeType] = useState<CreativeType | "">("");
@@ -28,25 +31,49 @@ const CreativeUpload = () => {
   const [notes, setNotes] = useState("");
   const [isDragOverFeed, setIsDragOverFeed] = useState(false);
   const [isDragOverStories, setIsDragOverStories] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const [productName, setProductName] = useState("");
+  const [productAcronym, setProductAcronym] = useState("");
 
   const objectives: ObjectiveType[] = [
     "Vendas", "Remarketing", "Conteúdo", "Captação", "Lembrete", "Carrinho Aberto",
   ];
 
-  // Mock product data
-  const productAcronym = "MVP";
-  const nextCounters: Record<string, number> = {
-    "Vendas_PHOTO": 2, "Vendas_VIDEO": 3, "Vendas_CAROUSEL": 2,
-    "Conteúdo_VIDEO": 2, "Remarketing_CAROUSEL": 2, "Captação_VIDEO": 2,
-  };
+  useEffect(() => {
+    if (!id) return;
+    supabase.from("products").select("name, acronym").eq("id", id).single()
+      .then(({ data }) => {
+        if (data) {
+          setProductName(data.name);
+          setProductAcronym(data.acronym);
+        }
+      });
+  }, [id]);
 
-  const generateCode = () => {
-    if (!creativeType || !objective) return "";
+  const generateCode = useCallback(async () => {
+    if (!creativeType || !objective || !id) return "";
     const typePrefix = creativeType === "PHOTO" ? "ADF" : creativeType === "VIDEO" ? "ADV" : "ADC";
-    const counterKey = `${objective}_${creativeType}`;
-    const counter = nextCounters[counterKey] || 1;
-    return `${productAcronym} | ${objective} | ${typePrefix}${counter.toString().padStart(3, "0")}`;
-  };
+
+    // Count existing creatives with same objective+type for this product
+    const { count } = await supabase
+      .from("creatives")
+      .select("id", { count: "exact", head: true })
+      .eq("product_id", id)
+      .eq("objective", objective)
+      .eq("type", creativeType);
+
+    const nextNum = (count || 0) + 1;
+    return `${productAcronym} | ${objective} | ${typePrefix}${nextNum.toString().padStart(3, "0")}`;
+  }, [creativeType, objective, id, productAcronym]);
+
+  const [generatedCode, setGeneratedCode] = useState("");
+
+  useEffect(() => {
+    if (step === 5 && creativeType && objective) {
+      generateCode().then(setGeneratedCode);
+    }
+  }, [step, generateCode, creativeType, objective]);
 
   const getAcceptedFileTypes = () => {
     switch (creativeType) {
@@ -67,15 +94,6 @@ const CreativeUpload = () => {
       alert(`Máximo de ${maxFiles} arquivo(s) permitido(s)`);
       return;
     }
-    const isValidType = fileArray.every((file) => {
-      if (creativeType === "PHOTO" || creativeType === "CAROUSEL") return file.type.startsWith("image/");
-      if (creativeType === "VIDEO") return file.type.startsWith("video/");
-      return false;
-    });
-    if (!isValidType) {
-      alert("Tipo de arquivo inválido para o tipo selecionado");
-      return;
-    }
     if (target === "feed") setFeedFiles(fileArray);
     else setStoriesFiles(fileArray);
   };
@@ -90,7 +108,6 @@ const CreativeUpload = () => {
   const handleFormatToggle = (format: FormatType) => {
     setFormats((prev) => {
       const next = prev.includes(format) ? prev.filter((f) => f !== format) : [...prev, format];
-      // Clear files for unchecked format
       if (!next.includes("Feed")) setFeedFiles([]);
       if (!next.includes("Stories")) setStoriesFiles([]);
       return next;
@@ -113,9 +130,56 @@ const CreativeUpload = () => {
     }
   };
 
-  const handleSubmit = () => {
-    console.log({ type: creativeType, objective, formats, feedFiles, storiesFiles, notes, generatedCode: generateCode() });
-    navigate(`/products/${id}`);
+  const handleSubmit = async () => {
+    if (!id || !creativeType || !objective || submitting) return;
+    setSubmitting(true);
+
+    try {
+      const code = generatedCode || await generateCode();
+
+      // 1. Insert creative record
+      const { data: creative, error: crErr } = await supabase.from("creatives").insert({
+        code,
+        type: creativeType,
+        objective,
+        formats,
+        product_id: id,
+        notes: notes || null,
+      }).select("id").single();
+
+      if (crErr || !creative) throw crErr;
+
+      // 2. Upload files and create creative_files records
+      const allFiles: { file: File; format: string; position: number }[] = [];
+      feedFiles.forEach((f, i) => allFiles.push({ file: f, format: "Feed", position: i }));
+      storiesFiles.forEach((f, i) => allFiles.push({ file: f, format: "Stories", position: i }));
+
+      for (const { file, format, position } of allFiles) {
+        const filePath = `${id}/${creative.id}/${format}/${Date.now()}_${file.name}`;
+        const { error: upErr } = await supabase.storage.from("creatives").upload(filePath, file);
+        if (upErr) {
+          console.error("Upload error:", upErr);
+          continue;
+        }
+
+        await supabase.from("creative_files").insert({
+          creative_id: creative.id,
+          file_path: filePath,
+          file_name: file.name,
+          format,
+          position,
+          file_size: file.size,
+        });
+      }
+
+      toast({ title: "Criativo enviado com sucesso!" });
+      navigate(`/products/${id}`);
+    } catch (err: any) {
+      console.error(err);
+      toast({ title: "Erro ao enviar criativo", description: err?.message || "Tente novamente.", variant: "destructive" });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const getTypeIcon = (type: CreativeType) => {
@@ -162,9 +226,6 @@ const CreativeUpload = () => {
       </Card>
       {files.length > 0 && (
         <div className="space-y-2">
-          {creativeType === "CAROUSEL" && files.length > 1 && (
-            <p className="text-xs text-muted-foreground">Use as setas para reordenar as imagens do carrossel</p>
-          )}
           {files.map((file, index) => (
             <Card key={index} className="p-2">
               <div className="flex items-center gap-2">
@@ -179,13 +240,10 @@ const CreativeUpload = () => {
                   </div>
                 )}
                 <div className="p-1.5 bg-primary/10 rounded">
-                  {file.type.startsWith("image/") ? <FileImage className="h-3 w-3 text-primary" /> : <FileVideo className="h-3 w-3 text-success" />}
+                  {file.type.startsWith("image/") ? <FileImage className="h-3 w-3 text-primary" /> : <FileVideo className="h-3 w-3 text-green-600" />}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">
-                    {creativeType === "CAROUSEL" && <span className="text-muted-foreground mr-1">#{index + 1}</span>}
-                    {file.name}
-                  </p>
+                  <p className="text-sm font-medium truncate">{file.name}</p>
                   <p className="text-xs text-muted-foreground">{(file.size / (1024 * 1024)).toFixed(2)} MB</p>
                 </div>
                 <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setFiles(files.filter((_, i) => i !== index))}>
@@ -213,7 +271,7 @@ const CreativeUpload = () => {
                   onClick={() => setCreativeType(type)}
                 >
                   <CardContent className="p-6 text-center">
-                    <div className={`mx-auto mb-4 p-4 rounded-lg ${type === "PHOTO" ? "bg-primary/10 text-primary" : type === "VIDEO" ? "bg-success/10 text-success" : "bg-warning/10 text-warning"}`}>
+                    <div className={`mx-auto mb-4 p-4 rounded-lg ${type === "PHOTO" ? "bg-primary/10 text-primary" : type === "VIDEO" ? "bg-green-100 text-green-600" : "bg-amber-100 text-amber-600"}`}>
                       {getTypeIcon(type)}
                     </div>
                     <h4 className="font-semibold">{type === "PHOTO" ? "Foto" : type === "VIDEO" ? "Vídeo" : "Carrossel"}</h4>
@@ -270,7 +328,7 @@ const CreativeUpload = () => {
                       <div className="flex-1">
                         <p className="font-medium">{format}</p>
                         <p className="text-sm text-muted-foreground">
-                          {format === "Feed" ? "Formato quadrado/horizontal para feed do Instagram/Facebook" : "Formato vertical 9:16 para Stories/Reels"}
+                          {format === "Feed" ? "Formato quadrado/horizontal para feed" : "Formato vertical 9:16 para Stories/Reels"}
                         </p>
                       </div>
                     </div>
@@ -287,21 +345,12 @@ const CreativeUpload = () => {
             <h3 className="text-lg font-semibold mb-4">Envie os arquivos</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {formats.includes("Feed") && (
-                <FileUploadZone
-                  target="feed" files={feedFiles} setFiles={setFeedFiles}
-                  isDragOver={isDragOverFeed} setIsDragOver={setIsDragOverFeed}
-                  label="📐 Versão Feed"
-                />
+                <FileUploadZone target="feed" files={feedFiles} setFiles={setFeedFiles} isDragOver={isDragOverFeed} setIsDragOver={setIsDragOverFeed} label="📐 Versão Feed" />
               )}
               {formats.includes("Stories") && (
-                <FileUploadZone
-                  target="stories" files={storiesFiles} setFiles={setStoriesFiles}
-                  isDragOver={isDragOverStories} setIsDragOver={setIsDragOverStories}
-                  label="📱 Versão Stories"
-                />
+                <FileUploadZone target="stories" files={storiesFiles} setFiles={setStoriesFiles} isDragOver={isDragOverStories} setIsDragOver={setIsDragOverStories} label="📱 Versão Stories" />
               )}
             </div>
-
             <div className="space-y-2">
               <Label htmlFor="notes">Observações (opcional)</Label>
               <Textarea id="notes" placeholder="Adicione observações sobre este criativo..." value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} />
@@ -313,8 +362,8 @@ const CreativeUpload = () => {
         return (
           <div className="space-y-6">
             <div className="text-center">
-              <div className="mx-auto w-16 h-16 bg-success/10 rounded-full flex items-center justify-center mb-4">
-                <Check className="h-8 w-8 text-success" />
+              <div className="mx-auto w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mb-4">
+                <Check className="h-8 w-8 text-green-600" />
               </div>
               <h3 className="text-lg font-semibold mb-2">Revisar e confirmar</h3>
               <p className="text-muted-foreground">Verifique os dados antes de enviar o criativo</p>
@@ -326,7 +375,7 @@ const CreativeUpload = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label className="text-sm font-medium text-muted-foreground">Código gerado</Label>
-                    <p className="font-mono font-semibold text-primary text-lg">{generateCode()}</p>
+                    <p className="font-mono font-semibold text-primary text-lg">{generatedCode || "..."}</p>
                   </div>
                   <div>
                     <Label className="text-sm font-medium text-muted-foreground">Tipo</Label>
@@ -340,7 +389,6 @@ const CreativeUpload = () => {
                     <p className="font-medium">{objective}</p>
                   </div>
                 </div>
-
                 <div>
                   <Label className="text-sm font-medium text-muted-foreground">Formatos</Label>
                   <div className="flex gap-2 mt-1">
@@ -349,59 +397,26 @@ const CreativeUpload = () => {
                     ))}
                   </div>
                 </div>
-
                 {formats.includes("Feed") && feedFiles.length > 0 && (
                   <div>
                     <Label className="text-sm font-medium text-muted-foreground">Arquivos Feed ({feedFiles.length})</Label>
                     <div className="mt-1 space-y-1">
                       {feedFiles.map((file, i) => (
-                        <div key={i} className="flex items-center gap-2">
-                          {creativeType === "CAROUSEL" && feedFiles.length > 1 && (
-                            <div className="flex items-center gap-1">
-                              <Button variant="ghost" size="sm" className="h-5 w-5 p-0" disabled={i === 0} onClick={() => moveFile(feedFiles, setFeedFiles, i, i - 1)}>
-                                <ArrowUp className="h-3 w-3" />
-                              </Button>
-                              <Button variant="ghost" size="sm" className="h-5 w-5 p-0" disabled={i === feedFiles.length - 1} onClick={() => moveFile(feedFiles, setFeedFiles, i, i + 1)}>
-                                <ArrowDown className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          )}
-                          <p className="text-sm font-medium">
-                            {creativeType === "CAROUSEL" && <span className="text-muted-foreground mr-1">#{i + 1}</span>}
-                            {file.name}
-                          </p>
-                        </div>
+                        <p key={i} className="text-sm font-medium">{file.name}</p>
                       ))}
                     </div>
                   </div>
                 )}
-
                 {formats.includes("Stories") && storiesFiles.length > 0 && (
                   <div>
                     <Label className="text-sm font-medium text-muted-foreground">Arquivos Stories ({storiesFiles.length})</Label>
                     <div className="mt-1 space-y-1">
                       {storiesFiles.map((file, i) => (
-                        <div key={i} className="flex items-center gap-2">
-                          {creativeType === "CAROUSEL" && storiesFiles.length > 1 && (
-                            <div className="flex items-center gap-1">
-                              <Button variant="ghost" size="sm" className="h-5 w-5 p-0" disabled={i === 0} onClick={() => moveFile(storiesFiles, setStoriesFiles, i, i - 1)}>
-                                <ArrowUp className="h-3 w-3" />
-                              </Button>
-                              <Button variant="ghost" size="sm" className="h-5 w-5 p-0" disabled={i === storiesFiles.length - 1} onClick={() => moveFile(storiesFiles, setStoriesFiles, i, i + 1)}>
-                                <ArrowDown className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          )}
-                          <p className="text-sm font-medium">
-                            {creativeType === "CAROUSEL" && <span className="text-muted-foreground mr-1">#{i + 1}</span>}
-                            {file.name}
-                          </p>
-                        </div>
+                        <p key={i} className="text-sm font-medium">{file.name}</p>
                       ))}
                     </div>
                   </div>
                 )}
-
                 {notes && (
                   <div>
                     <Label className="text-sm font-medium text-muted-foreground">Observações</Label>
@@ -436,7 +451,7 @@ const CreativeUpload = () => {
           </Button>
           <div>
             <h1 className="text-3xl font-bold text-foreground">Enviar Criativo</h1>
-            <p className="text-muted-foreground mt-1">Método Viver de Piercing</p>
+            <p className="text-muted-foreground mt-1">{productName || "Carregando..."}</p>
           </div>
         </div>
 
@@ -447,7 +462,7 @@ const CreativeUpload = () => {
               {steps.map((stepItem, index) => (
                 <div key={index} className="flex items-center">
                   <div className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium ${
-                    step > index + 1 ? "bg-success text-success-foreground"
+                    step > index + 1 ? "bg-green-500 text-white"
                     : step === index + 1 ? "bg-primary text-primary-foreground"
                     : "bg-muted text-muted-foreground"
                   }`}>
@@ -457,7 +472,7 @@ const CreativeUpload = () => {
                     {stepItem.title}
                   </span>
                   {index < steps.length - 1 && (
-                    <div className={`w-12 h-px mx-4 ${step > index + 1 ? "bg-success" : "bg-muted"}`} />
+                    <div className={`w-12 h-px mx-4 ${step > index + 1 ? "bg-green-500" : "bg-muted"}`} />
                   )}
                 </div>
               ))}
@@ -475,8 +490,12 @@ const CreativeUpload = () => {
           <Button variant="outline" onClick={() => (step > 1 ? setStep(step - 1) : navigate(`/products/${id}`))}>
             {step === 1 ? "Cancelar" : "Voltar"}
           </Button>
-          <Button onClick={() => (step === 5 ? handleSubmit() : setStep(step + 1))} disabled={!canProceed()} className="hub-shadow">
-            {step === 5 ? "Enviar Criativo" : "Continuar"}
+          <Button
+            onClick={() => (step === 5 ? handleSubmit() : setStep(step + 1))}
+            disabled={step < 5 ? !canProceed() : submitting}
+            className="hub-shadow"
+          >
+            {step === 5 ? (submitting ? "Enviando..." : "Enviar Criativo") : "Continuar"}
           </Button>
         </div>
       </div>
