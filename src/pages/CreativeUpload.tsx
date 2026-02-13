@@ -35,13 +35,17 @@ const CreativeUpload = () => {
 
   // Mock product data
   const productAcronym = "MVP";
-  const nextCounters = { photo: 2, video: 3, carousel: 2 };
+  const nextCounters: Record<string, number> = {
+    "Vendas_PHOTO": 2, "Vendas_VIDEO": 3, "Vendas_CAROUSEL": 2,
+    "Conteúdo_VIDEO": 2, "Remarketing_CAROUSEL": 2, "Captação_VIDEO": 2,
+  };
 
   const generateCode = () => {
     if (!creativeType || !objective) return "";
     const typePrefix = creativeType === "PHOTO" ? "ADF" : creativeType === "VIDEO" ? "ADV" : "ADC";
-    const counter = creativeType === "PHOTO" ? nextCounters.photo : creativeType === "VIDEO" ? nextCounters.video : nextCounters.carousel;
-    return `${productAcronym} | ${typePrefix}${counter.toString().padStart(3, "0")}`;
+    const counterKey = `${objective}_${creativeType}`;
+    const counter = nextCounters[counterKey] || 1;
+    return `${productAcronym} | ${objective} | ${typePrefix}${counter.toString().padStart(3, "0")}`;
   };
 
   const getAcceptedFileTypes = () => {
