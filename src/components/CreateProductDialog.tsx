@@ -12,10 +12,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ArrowLeft, ArrowRight, ShoppingBag, BookOpen, Users, Briefcase } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface CreateProductDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  clientId: string;
+  onCreated?: () => void;
 }
 
 const categoryOptions = [
@@ -25,7 +29,6 @@ const categoryOptions = [
   { value: "ecommerce", label: "E-commerce", icon: ShoppingBag },
 ];
 
-/** Generate a suggested acronym from product name initials */
 const generateAcronym = (name: string): string => {
   return name
     .split(/\s+/)
@@ -35,12 +38,14 @@ const generateAcronym = (name: string): string => {
     .slice(0, 4);
 };
 
-const CreateProductDialog = ({ open, onOpenChange }: CreateProductDialogProps) => {
+const CreateProductDialog = ({ open, onOpenChange, clientId, onCreated }: CreateProductDialogProps) => {
+  const { toast } = useToast();
   const [step, setStep] = useState(1);
   const [productName, setProductName] = useState("");
   const [acronym, setAcronym] = useState("");
   const [category, setCategory] = useState("");
   const [showFormPopup, setShowFormPopup] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const reset = () => {
     setStep(1);
@@ -48,6 +53,7 @@ const CreateProductDialog = ({ open, onOpenChange }: CreateProductDialogProps) =
     setAcronym("");
     setCategory("");
     setShowFormPopup(false);
+    setSaving(false);
   };
 
   const handleClose = (val: boolean) => {
@@ -60,6 +66,26 @@ const CreateProductDialog = ({ open, onOpenChange }: CreateProductDialogProps) =
     setAcronym(generateAcronym(value));
   };
 
+  const saveProduct = async () => {
+    setSaving(true);
+    const { error } = await supabase.from("products").insert({
+      name: productName.trim(),
+      acronym: acronym.trim(),
+      category,
+      client_id: clientId,
+    });
+    setSaving(false);
+
+    if (error) {
+      toast({ title: "Erro ao criar produto", description: error.message, variant: "destructive" });
+      return false;
+    }
+
+    toast({ title: "Produto criado com sucesso!" });
+    onCreated?.();
+    return true;
+  };
+
   const handleCategorySelect = (value: string) => {
     setCategory(value);
     if (value === "infoproduto") {
@@ -67,9 +93,17 @@ const CreateProductDialog = ({ open, onOpenChange }: CreateProductDialogProps) =
     }
   };
 
-  const handleFinish = () => {
-    console.log("Product created:", { productName, acronym, category });
-    handleClose(false);
+  const handleFinish = async () => {
+    const ok = await saveProduct();
+    if (ok) handleClose(false);
+  };
+
+  const handleInfoprodutoFinish = async () => {
+    const ok = await saveProduct();
+    if (ok) {
+      setShowFormPopup(false);
+      handleClose(false);
+    }
   };
 
   return (
@@ -162,10 +196,10 @@ const CreateProductDialog = ({ open, onOpenChange }: CreateProductDialogProps) =
             ) : (
               <Button
                 className="ml-auto"
-                disabled={!category || category === "infoproduto"}
+                disabled={!category || category === "infoproduto" || saving}
                 onClick={handleFinish}
               >
-                Criar Produto
+                {saving ? "Criando..." : "Criar Produto"}
               </Button>
             )}
           </DialogFooter>
@@ -179,7 +213,7 @@ const CreateProductDialog = ({ open, onOpenChange }: CreateProductDialogProps) =
             <DialogTitle>Formulário — Infoproduto</DialogTitle>
             <DialogDescription>Preencha o formulário abaixo para continuar.</DialogDescription>
           </DialogHeader>
-          <div className="overflow-y-auto px-6 pb-6" style={{ maxHeight: "calc(90vh - 100px)" }}>
+          <div className="overflow-y-auto px-6 pb-6" style={{ maxHeight: "calc(90vh - 160px)" }}>
             <iframe
               src="https://docs.google.com/forms/d/e/1FAIpQLSdVJ3kfqGTtjrophYEhBDClWCQN9M4VEcnQML-66RZ8bTVf9w/viewform?embedded=true"
               width="100%"
@@ -191,6 +225,11 @@ const CreateProductDialog = ({ open, onOpenChange }: CreateProductDialogProps) =
             >
               Carregando…
             </iframe>
+          </div>
+          <div className="p-4 border-t border-border flex justify-end">
+            <Button onClick={handleInfoprodutoFinish} disabled={saving}>
+              {saving ? "Criando..." : "Concluir e Criar Produto"}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
