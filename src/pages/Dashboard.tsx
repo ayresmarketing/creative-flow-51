@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import Layout from "@/components/Layout";
 import CreateProductDialog from "@/components/CreateProductDialog";
 import { Button } from "@/components/ui/button";
@@ -39,7 +40,8 @@ const mockProducts = [
     status: "PUBLISHED",
     lastUpload: "2024-01-15",
     topPerformer: "ADV0003",
-    performanceScore: 8.5
+    performanceScore: 8.5,
+    clientId: "client-1"
   },
   {
     id: "2", 
@@ -52,7 +54,8 @@ const mockProducts = [
     status: "PENDING",
     lastUpload: "2024-01-14",
     topPerformer: "ADF0007",
-    performanceScore: 9.2
+    performanceScore: 9.2,
+    clientId: "client-1"
   },
   {
     id: "3",
@@ -65,17 +68,24 @@ const mockProducts = [
     status: "PUBLISHED",
     lastUpload: "2024-01-12",
     topPerformer: "ADC0002",
-    performanceScore: 7.8
+    performanceScore: 7.8,
+    clientId: "client-1"
   }
 ];
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [createOpen, setCreateOpen] = useState(false);
 
-  const filteredProducts = mockProducts.filter(product => {
+  // Filter products by clientId for CLIENTE users
+  const visibleProducts = user?.role === "CLIENTE" 
+    ? mockProducts.filter(p => p.clientId === user.clientId)
+    : mockProducts;
+
+  const filteredProducts = visibleProducts.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          product.category.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "all" || product.status.toLowerCase() === statusFilter;
@@ -83,10 +93,10 @@ const Dashboard = () => {
   });
 
   const totalStats = {
-    products: mockProducts.length,
-    creatives: mockProducts.reduce((sum, p) => sum + p.creativeCount, 0),
-    published: mockProducts.filter(p => p.status === "PUBLISHED").length,
-    pending: mockProducts.filter(p => p.status === "PENDING").length
+    products: visibleProducts.length,
+    creatives: visibleProducts.reduce((sum, p) => sum + p.creativeCount, 0),
+    published: visibleProducts.filter(p => p.status === "PUBLISHED").length,
+    pending: visibleProducts.filter(p => p.status === "PENDING").length
   };
 
   return (

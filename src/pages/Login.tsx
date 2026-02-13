@@ -6,17 +6,25 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Eye, EyeOff, Crown, User } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Login = () => {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    // Mock login - redirect to dashboard
-    navigate("/dashboard");
+    setError("");
+    const result = login(email, password);
+    if (result) {
+      navigate("/products");
+    } else {
+      setError("Email ou senha inválidos");
+    }
   };
 
   // Mock accounts for demo
@@ -96,6 +104,7 @@ const Login = () => {
                   </Button>
                 </div>
               </div>
+              {error && <p className="text-sm text-destructive text-center">{error}</p>}
               <Button type="submit" className="w-full hub-shadow">
                 Entrar
               </Button>

@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { 
-  Upload, Image, Video, Layers, ArrowLeft, Check, X, FileImage, FileVideo
+  Upload, Image, Video, Layers, ArrowLeft, Check, X, FileImage, FileVideo, ArrowUp, ArrowDown, GripVertical
 } from "lucide-react";
 
 type CreativeType = "PHOTO" | "VIDEO" | "CAROUSEL";
@@ -126,6 +126,14 @@ const CreativeUpload = () => {
     }
   };
 
+  const moveFile = (files: File[], setFiles: (f: File[]) => void, fromIndex: number, toIndex: number) => {
+    if (toIndex < 0 || toIndex >= files.length) return;
+    const updated = [...files];
+    const [moved] = updated.splice(fromIndex, 1);
+    updated.splice(toIndex, 0, moved);
+    setFiles(updated);
+  };
+
   const FileUploadZone = ({ target, files, setFiles, isDragOver, setIsDragOver, label }: {
     target: "feed" | "stories"; files: File[]; setFiles: (f: File[]) => void;
     isDragOver: boolean; setIsDragOver: (v: boolean) => void; label: string;
@@ -154,14 +162,30 @@ const CreativeUpload = () => {
       </Card>
       {files.length > 0 && (
         <div className="space-y-2">
+          {creativeType === "CAROUSEL" && files.length > 1 && (
+            <p className="text-xs text-muted-foreground">Use as setas para reordenar as imagens do carrossel</p>
+          )}
           {files.map((file, index) => (
             <Card key={index} className="p-2">
               <div className="flex items-center gap-2">
+                {creativeType === "CAROUSEL" && files.length > 1 && (
+                  <div className="flex flex-col gap-0.5">
+                    <Button variant="ghost" size="sm" className="h-5 w-5 p-0" disabled={index === 0} onClick={() => moveFile(files, setFiles, index, index - 1)}>
+                      <ArrowUp className="h-3 w-3" />
+                    </Button>
+                    <Button variant="ghost" size="sm" className="h-5 w-5 p-0" disabled={index === files.length - 1} onClick={() => moveFile(files, setFiles, index, index + 1)}>
+                      <ArrowDown className="h-3 w-3" />
+                    </Button>
+                  </div>
+                )}
                 <div className="p-1.5 bg-primary/10 rounded">
                   {file.type.startsWith("image/") ? <FileImage className="h-3 w-3 text-primary" /> : <FileVideo className="h-3 w-3 text-success" />}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{file.name}</p>
+                  <p className="text-sm font-medium truncate">
+                    {creativeType === "CAROUSEL" && <span className="text-muted-foreground mr-1">#{index + 1}</span>}
+                    {file.name}
+                  </p>
                   <p className="text-xs text-muted-foreground">{(file.size / (1024 * 1024)).toFixed(2)} MB</p>
                 </div>
                 <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setFiles(files.filter((_, i) => i !== index))}>
@@ -330,7 +354,24 @@ const CreativeUpload = () => {
                   <div>
                     <Label className="text-sm font-medium text-muted-foreground">Arquivos Feed ({feedFiles.length})</Label>
                     <div className="mt-1 space-y-1">
-                      {feedFiles.map((file, i) => <p key={i} className="text-sm font-medium">{file.name}</p>)}
+                      {feedFiles.map((file, i) => (
+                        <div key={i} className="flex items-center gap-2">
+                          {creativeType === "CAROUSEL" && feedFiles.length > 1 && (
+                            <div className="flex items-center gap-1">
+                              <Button variant="ghost" size="sm" className="h-5 w-5 p-0" disabled={i === 0} onClick={() => moveFile(feedFiles, setFeedFiles, i, i - 1)}>
+                                <ArrowUp className="h-3 w-3" />
+                              </Button>
+                              <Button variant="ghost" size="sm" className="h-5 w-5 p-0" disabled={i === feedFiles.length - 1} onClick={() => moveFile(feedFiles, setFeedFiles, i, i + 1)}>
+                                <ArrowDown className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          )}
+                          <p className="text-sm font-medium">
+                            {creativeType === "CAROUSEL" && <span className="text-muted-foreground mr-1">#{i + 1}</span>}
+                            {file.name}
+                          </p>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 )}
@@ -339,7 +380,24 @@ const CreativeUpload = () => {
                   <div>
                     <Label className="text-sm font-medium text-muted-foreground">Arquivos Stories ({storiesFiles.length})</Label>
                     <div className="mt-1 space-y-1">
-                      {storiesFiles.map((file, i) => <p key={i} className="text-sm font-medium">{file.name}</p>)}
+                      {storiesFiles.map((file, i) => (
+                        <div key={i} className="flex items-center gap-2">
+                          {creativeType === "CAROUSEL" && storiesFiles.length > 1 && (
+                            <div className="flex items-center gap-1">
+                              <Button variant="ghost" size="sm" className="h-5 w-5 p-0" disabled={i === 0} onClick={() => moveFile(storiesFiles, setStoriesFiles, i, i - 1)}>
+                                <ArrowUp className="h-3 w-3" />
+                              </Button>
+                              <Button variant="ghost" size="sm" className="h-5 w-5 p-0" disabled={i === storiesFiles.length - 1} onClick={() => moveFile(storiesFiles, setStoriesFiles, i, i + 1)}>
+                                <ArrowDown className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          )}
+                          <p className="text-sm font-medium">
+                            {creativeType === "CAROUSEL" && <span className="text-muted-foreground mr-1">#{i + 1}</span>}
+                            {file.name}
+                          </p>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 )}

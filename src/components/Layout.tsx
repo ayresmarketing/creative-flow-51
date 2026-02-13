@@ -3,11 +3,10 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/contexts/AuthContext";
 import { 
-  Home, 
   FolderOpen, 
-  BarChart3, 
-  Settings, 
+  Users,
   LogOut,
   User,
   Crown
@@ -17,44 +16,28 @@ interface LayoutProps {
   children: ReactNode;
 }
 
-const mockUser = {
-  name: "João Silva",
-  email: "joao@ayresmarketing.com",
-  role: "GESTOR" as const, // or "CLIENTE"
-  company: "Ayres Marketing",
-  avatar: "/placeholder.svg"
-};
-
 const Layout = ({ children }: LayoutProps) => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
 
-  const isActive = (path: string) => location.pathname === path;
+  const isActive = (path: string) => location.pathname === path || location.pathname.startsWith(path + "/");
 
   const navigation = [
-    {
-      name: "Dashboard",
-      href: "/dashboard",
-      icon: Home,
-    },
     {
       name: "Produtos",
       href: "/products",
       icon: FolderOpen,
     },
-    {
-      name: "Relatórios",
-      href: "/reports",
-      icon: BarChart3,
-    },
-    {
-      name: "Configurações",
-      href: "/settings",
-      icon: Settings,
-    },
+    ...(user?.role === "GESTOR" ? [{
+      name: "Clientes",
+      href: "/clients",
+      icon: Users,
+    }] : []),
   ];
 
   const handleLogout = () => {
+    logout();
     navigate("/login");
   };
 
@@ -78,22 +61,22 @@ const Layout = ({ children }: LayoutProps) => {
           <div className="px-6 py-4 border-b border-border">
             <div className="flex items-center gap-3">
               <Avatar className="h-10 w-10">
-                <AvatarImage src={mockUser.avatar} alt={mockUser.name} />
+                <AvatarImage src="/placeholder.svg" alt={user?.name} />
                 <AvatarFallback>
                   <User className="h-5 w-5" />
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-sm text-foreground truncate">
-                  {mockUser.name}
+                  {user?.name || "Usuário"}
                 </p>
                 <div className="flex items-center gap-2 mt-1">
                   <Badge 
-                    variant={mockUser.role === "GESTOR" ? "default" : "secondary"}
+                    variant={user?.role === "GESTOR" ? "default" : "secondary"}
                     className="text-xs"
                   >
-                    {mockUser.role === "GESTOR" && <Crown className="h-3 w-3 mr-1" />}
-                    {mockUser.role}
+                    {user?.role === "GESTOR" && <Crown className="h-3 w-3 mr-1" />}
+                    {user?.role || "—"}
                   </Badge>
                 </div>
               </div>
