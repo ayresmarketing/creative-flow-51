@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import Layout from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -20,6 +20,8 @@ type FormatType = "Feed" | "Stories";
 const CreativeUpload = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const roteiroId = searchParams.get("roteiro_id");
   const { toast } = useToast();
 
   const [step, setStep] = useState(1);
@@ -170,6 +172,18 @@ const CreativeUpload = () => {
           position,
           file_size: file.size,
         });
+      }
+
+      // If upload came from a roteiro, link the creative and auto-set is_recorded
+      if (roteiroId && creative) {
+        await supabase
+          .from("roteiros")
+          .update({
+            video_creative_id: creative.id,
+            video_sent_at: new Date().toISOString(),
+            is_recorded: true,
+          })
+          .eq("id", roteiroId);
       }
 
       toast({ title: "Criativo enviado com sucesso!" });
