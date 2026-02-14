@@ -185,6 +185,57 @@ export type Database = {
         }
         Relationships: []
       }
+      roteiros: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          is_recorded: boolean
+          product_id: string
+          title: string
+          updated_at: string
+          video_creative_id: string | null
+          video_sent_at: string | null
+        }
+        Insert: {
+          content?: string
+          created_at?: string
+          id?: string
+          is_recorded?: boolean
+          product_id: string
+          title: string
+          updated_at?: string
+          video_creative_id?: string | null
+          video_sent_at?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          is_recorded?: boolean
+          product_id?: string
+          title?: string
+          updated_at?: string
+          video_creative_id?: string | null
+          video_sent_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "roteiros_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "roteiros_video_creative_id_fkey"
+            columns: ["video_creative_id"]
+            isOneToOne: false
+            referencedRelation: "creatives"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           id: string
