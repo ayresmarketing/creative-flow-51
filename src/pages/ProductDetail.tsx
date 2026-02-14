@@ -27,6 +27,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import CreativePreviewDialog from "@/components/CreativePreviewDialog";
+import RoteiroList from "@/components/RoteiroList";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface Creative {
   id: string;
@@ -61,6 +63,7 @@ const ProductDetail = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
   const [objectiveTab, setObjectiveTab] = useState("Todos");
+  const [activeTab, setActiveTab] = useState("criativos");
 
   // Preview dialog
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -266,245 +269,259 @@ const ProductDetail = () => {
           </Button>
         </div>
 
-        {/* Filters */}
-        <Card className="hub-card-shadow">
-          <CardContent className="p-4">
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input placeholder="Buscar criativos..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" />
-              </div>
-              <div className="flex gap-2">
-                <Select value={typeFilter} onValueChange={setTypeFilter}>
-                  <SelectTrigger className="w-28"><SelectValue placeholder="Tipo" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
-                    <SelectItem value="photo">Fotos</SelectItem>
-                    <SelectItem value="video">Vídeos</SelectItem>
-                    <SelectItem value="carousel">Carrosséis</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-28"><SelectValue placeholder="Status" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
-                    <SelectItem value="published">Publicados</SelectItem>
-                    <SelectItem value="pending">Pendentes</SelectItem>
-                  </SelectContent>
-                </Select>
-                <div className="flex border rounded-md">
-                  <Button variant={viewMode === "grid" ? "default" : "ghost"} size="icon" className="rounded-r-none h-9 w-9" onClick={() => setViewMode("grid")}>
-                    <LayoutGrid className="h-4 w-4" />
-                  </Button>
-                  <Button variant={viewMode === "table" ? "default" : "ghost"} size="icon" className="rounded-l-none h-9 w-9" onClick={() => setViewMode("table")}>
-                    <TableIcon className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Tabs */}
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList>
+            <TabsTrigger value="criativos">Criativos</TabsTrigger>
+            <TabsTrigger value="roteiros">Roteiros</TabsTrigger>
+          </TabsList>
 
-        {/* Objective Tabs */}
-        <div className="overflow-x-auto">
-          <div className="inline-flex flex-wrap gap-1">
-            {objectiveCategories.map((obj) => {
-              const count = getObjectiveCount(obj);
-              return (
-                <button
-                  key={obj}
-                  onClick={() => setObjectiveTab(obj)}
-                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
-                    objectiveTab === obj
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-muted-foreground hover:bg-muted/80"
-                  }`}
-                >
-                  {obj}
-                  {count > 0 && (
-                    <Badge variant={objectiveTab === obj ? "secondary" : "outline"} className="text-xs px-1.5 py-0 min-w-[18px] justify-center">
-                      {count}
-                    </Badge>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* TABLE VIEW */}
-        {viewMode === "table" && filteredCreatives.length > 0 && (
-          <Card className="hub-card-shadow">
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nomenclatura</TableHead>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>Objetivo</TableHead>
-                    <TableHead>Formatos</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Data</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredCreatives.map((creative) => (
-                    <TableRow key={creative.id}>
-                      <TableCell className="font-mono font-semibold text-primary text-sm">{creative.code}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1.5">
-                          <span className={getTypeColor(creative.type)}>{getTypeIcon(creative.type)}</span>
-                          <span className="text-sm">{getTypeLabel(creative.type)}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-sm">{creative.objective}</TableCell>
-                      <TableCell>
-                        <div className="flex gap-1">
-                          {creative.formats.map((f) => (
-                            <Badge key={f} variant="outline" className="text-xs">{f}</Badge>
-                          ))}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {user?.role === "GESTOR" ? (
-                          <button
-                            onClick={() => toggleStatus(creative.id, creative.status)}
-                            className="flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition-opacity"
-                          >
-                            {creative.status === "PUBLISHED" ? (
-                              <CheckCircle2 className="h-4 w-4 text-green-600" />
-                            ) : (
-                              <Circle className="h-4 w-4 text-amber-500" />
-                            )}
-                            <Badge variant={creative.status === "PUBLISHED" ? "default" : "secondary"} className="text-xs">
-                              {creative.status === "PUBLISHED" ? "Publicado" : "Pendente"}
-                            </Badge>
-                          </button>
-                        ) : (
-                          <Badge variant={creative.status === "PUBLISHED" ? "default" : "secondary"} className="text-xs">
-                            {creative.status === "PUBLISHED" ? "Publicado" : "Pendente"}
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {new Date(creative.created_at).toLocaleDateString("pt-BR")}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <CreativeDropdownMenu creative={creative} />
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* GRID VIEW */}
-        {viewMode === "grid" && filteredCreatives.length > 0 && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-            {filteredCreatives.map((creative) => (
-              <Card
-                key={creative.id}
-                className="hub-card-shadow hover:shadow-md transition-shadow animate-fade-in overflow-hidden cursor-pointer group"
-                onClick={() => { setPreviewCreative(creative); setPreviewOpen(true); }}
-              >
-                <CardContent className="p-0">
-                  {/* Thumbnail */}
-                  <div className="relative h-24 bg-muted flex items-center justify-center overflow-hidden">
-                    {creative.thumbnail_url ? (
-                      <>
-                        {creative.type === "VIDEO" ? (
-                          <>
-                            <video
-                              src={creative.thumbnail_url}
-                              className="w-full h-full object-cover"
-                              muted
-                              preload="metadata"
-                            />
-                            <div className="absolute inset-0 flex items-center justify-center bg-black/20">
-                              <Play className="h-5 w-5 text-white fill-white" />
-                            </div>
-                          </>
-                        ) : (
-                          <img
-                            src={creative.thumbnail_url}
-                            alt={creative.code}
-                            className="w-full h-full object-cover"
-                          />
-                        )}
-                      </>
-                    ) : (
-                      <span className={`${getTypeColor(creative.type)} opacity-40`}>
-                        {creative.type === "VIDEO" ? <Play className="h-5 w-5" /> : getTypeIcon(creative.type)}
-                      </span>
-                    )}
-                    {/* Dropdown on hover */}
-                    <div
-                      className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <CreativeDropdownMenu creative={creative} />
+          <TabsContent value="criativos" className="space-y-6 mt-4">
+            {/* Filters */}
+            <Card className="hub-card-shadow">
+              <CardContent className="p-4">
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <div className="flex-1 relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input placeholder="Buscar criativos..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" />
+                  </div>
+                  <div className="flex gap-2">
+                    <Select value={typeFilter} onValueChange={setTypeFilter}>
+                      <SelectTrigger className="w-28"><SelectValue placeholder="Tipo" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos</SelectItem>
+                        <SelectItem value="photo">Fotos</SelectItem>
+                        <SelectItem value="video">Vídeos</SelectItem>
+                        <SelectItem value="carousel">Carrosséis</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                      <SelectTrigger className="w-28"><SelectValue placeholder="Status" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos</SelectItem>
+                        <SelectItem value="published">Publicados</SelectItem>
+                        <SelectItem value="pending">Pendentes</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <div className="flex border rounded-md">
+                      <Button variant={viewMode === "grid" ? "default" : "ghost"} size="icon" className="rounded-r-none h-9 w-9" onClick={() => setViewMode("grid")}>
+                        <LayoutGrid className="h-4 w-4" />
+                      </Button>
+                      <Button variant={viewMode === "table" ? "default" : "ghost"} size="icon" className="rounded-l-none h-9 w-9" onClick={() => setViewMode("table")}>
+                        <TableIcon className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
+                </div>
+              </CardContent>
+            </Card>
 
-                  <div className="p-2.5 space-y-1.5">
-                    <p className="font-sans text-xs font-semibold text-foreground truncate leading-tight">{creative.code}</p>
-                    <p className="text-[11px] text-muted-foreground leading-tight">{creative.objective}</p>
-
-                    <div className="flex items-center justify-between">
-                      {user?.role === "GESTOR" ? (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); toggleStatus(creative.id, creative.status); }}
-                          className="cursor-pointer hover:opacity-80 transition-opacity"
-                        >
-                          <Badge variant={creative.status === "PUBLISHED" ? "default" : "secondary"} className="text-[10px]">
-                            {creative.status === "PUBLISHED" ? "Publicado" : "Pendente"}
-                          </Badge>
-                        </button>
-                      ) : (
-                        <Badge variant={creative.status === "PUBLISHED" ? "default" : "secondary"} className="text-[10px]">
-                          {creative.status === "PUBLISHED" ? "Publicado" : "Pendente"}
+            {/* Objective Tabs */}
+            <div className="overflow-x-auto">
+              <div className="inline-flex flex-wrap gap-1">
+                {objectiveCategories.map((obj) => {
+                  const count = getObjectiveCount(obj);
+                  return (
+                    <button
+                      key={obj}
+                      onClick={() => setObjectiveTab(obj)}
+                      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
+                        objectiveTab === obj
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted text-muted-foreground hover:bg-muted/80"
+                      }`}
+                    >
+                      {obj}
+                      {count > 0 && (
+                        <Badge variant={objectiveTab === obj ? "secondary" : "outline"} className="text-xs px-1.5 py-0 min-w-[18px] justify-center">
+                          {count}
                         </Badge>
                       )}
-                      <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
-                        <Calendar className="h-2.5 w-2.5" />
-                        {new Date(creative.created_at).toLocaleDateString("pt-BR")}
-                      </span>
-                    </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
-                    <div className="flex flex-wrap gap-1">
-                      {creative.formats.map((format) => (
-                        <Badge key={format} variant="outline" className="text-[10px] px-1.5 py-0">{format}</Badge>
+            {/* TABLE VIEW */}
+            {viewMode === "table" && filteredCreatives.length > 0 && (
+              <Card className="hub-card-shadow">
+                <CardContent className="p-0">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Nomenclatura</TableHead>
+                        <TableHead>Tipo</TableHead>
+                        <TableHead>Objetivo</TableHead>
+                        <TableHead>Formatos</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Data</TableHead>
+                        <TableHead className="text-right">Ações</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredCreatives.map((creative) => (
+                        <TableRow key={creative.id}>
+                          <TableCell className="font-mono font-semibold text-primary text-sm">{creative.code}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1.5">
+                              <span className={getTypeColor(creative.type)}>{getTypeIcon(creative.type)}</span>
+                              <span className="text-sm">{getTypeLabel(creative.type)}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-sm">{creative.objective}</TableCell>
+                          <TableCell>
+                            <div className="flex gap-1">
+                              {creative.formats.map((f) => (
+                                <Badge key={f} variant="outline" className="text-xs">{f}</Badge>
+                              ))}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            {user?.role === "GESTOR" ? (
+                              <button
+                                onClick={() => toggleStatus(creative.id, creative.status)}
+                                className="flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition-opacity"
+                              >
+                                {creative.status === "PUBLISHED" ? (
+                                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                                ) : (
+                                  <Circle className="h-4 w-4 text-amber-500" />
+                                )}
+                                <Badge variant={creative.status === "PUBLISHED" ? "default" : "secondary"} className="text-xs">
+                                  {creative.status === "PUBLISHED" ? "Publicado" : "Pendente"}
+                                </Badge>
+                              </button>
+                            ) : (
+                              <Badge variant={creative.status === "PUBLISHED" ? "default" : "secondary"} className="text-xs">
+                                {creative.status === "PUBLISHED" ? "Publicado" : "Pendente"}
+                              </Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {new Date(creative.created_at).toLocaleDateString("pt-BR")}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <CreativeDropdownMenu creative={creative} />
+                          </TableCell>
+                        </TableRow>
                       ))}
-                    </div>
-                  </div>
+                    </TableBody>
+                  </Table>
                 </CardContent>
               </Card>
-            ))}
-          </div>
-        )}
+            )}
 
-        {/* Empty State */}
-        {filteredCreatives.length === 0 && !loading && (
-          <Card className="hub-card-shadow">
-            <CardContent className="p-12 text-center">
-              <Image className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-foreground mb-2">Nenhum criativo encontrado</h3>
-              <p className="text-muted-foreground mb-4">
-                {searchTerm || typeFilter !== "all" || statusFilter !== "all"
-                  ? "Tente ajustar os filtros de busca."
-                  : "Comece enviando seu primeiro criativo."}
-              </p>
-              {!searchTerm && typeFilter === "all" && statusFilter === "all" && (
-                <Button onClick={() => navigate(`/products/${id}/upload`)}>
-                  <Plus className="h-4 w-4 mr-2" /> Enviar Primeiro Criativo
-                </Button>
-              )}
-            </CardContent>
-          </Card>
-        )}
+            {/* GRID VIEW */}
+            {viewMode === "grid" && filteredCreatives.length > 0 && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+                {filteredCreatives.map((creative) => (
+                  <Card
+                    key={creative.id}
+                    className="hub-card-shadow hover:shadow-md transition-shadow animate-fade-in overflow-hidden cursor-pointer group"
+                    onClick={() => { setPreviewCreative(creative); setPreviewOpen(true); }}
+                  >
+                    <CardContent className="p-0">
+                      {/* Thumbnail */}
+                      <div className="relative h-24 bg-muted flex items-center justify-center overflow-hidden">
+                        {creative.thumbnail_url ? (
+                          <>
+                            {creative.type === "VIDEO" ? (
+                              <>
+                                <video
+                                  src={creative.thumbnail_url}
+                                  className="w-full h-full object-cover"
+                                  muted
+                                  preload="metadata"
+                                />
+                                <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                                  <Play className="h-5 w-5 text-white fill-white" />
+                                </div>
+                              </>
+                            ) : (
+                              <img
+                                src={creative.thumbnail_url}
+                                alt={creative.code}
+                                className="w-full h-full object-cover"
+                              />
+                            )}
+                          </>
+                        ) : (
+                          <span className={`${getTypeColor(creative.type)} opacity-40`}>
+                            {creative.type === "VIDEO" ? <Play className="h-5 w-5" /> : getTypeIcon(creative.type)}
+                          </span>
+                        )}
+                        {/* Dropdown on hover */}
+                        <div
+                          className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <CreativeDropdownMenu creative={creative} />
+                        </div>
+                      </div>
+
+                      <div className="p-2.5 space-y-1.5">
+                        <p className="font-sans text-xs font-semibold text-foreground truncate leading-tight">{creative.code}</p>
+                        <p className="text-[11px] text-muted-foreground leading-tight">{creative.objective}</p>
+
+                        <div className="flex items-center justify-between">
+                          {user?.role === "GESTOR" ? (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); toggleStatus(creative.id, creative.status); }}
+                              className="cursor-pointer hover:opacity-80 transition-opacity"
+                            >
+                              <Badge variant={creative.status === "PUBLISHED" ? "default" : "secondary"} className="text-[10px]">
+                                {creative.status === "PUBLISHED" ? "Publicado" : "Pendente"}
+                              </Badge>
+                            </button>
+                          ) : (
+                            <Badge variant={creative.status === "PUBLISHED" ? "default" : "secondary"} className="text-[10px]">
+                              {creative.status === "PUBLISHED" ? "Publicado" : "Pendente"}
+                            </Badge>
+                          )}
+                          <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                            <Calendar className="h-2.5 w-2.5" />
+                            {new Date(creative.created_at).toLocaleDateString("pt-BR")}
+                          </span>
+                        </div>
+
+                        <div className="flex flex-wrap gap-1">
+                          {creative.formats.map((format) => (
+                            <Badge key={format} variant="outline" className="text-[10px] px-1.5 py-0">{format}</Badge>
+                          ))}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+
+            {/* Empty State */}
+            {filteredCreatives.length === 0 && !loading && (
+              <Card className="hub-card-shadow">
+                <CardContent className="p-12 text-center">
+                  <Image className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-foreground mb-2">Nenhum criativo encontrado</h3>
+                  <p className="text-muted-foreground mb-4">
+                    {searchTerm || typeFilter !== "all" || statusFilter !== "all"
+                      ? "Tente ajustar os filtros de busca."
+                      : "Comece enviando seu primeiro criativo."}
+                  </p>
+                  {!searchTerm && typeFilter === "all" && statusFilter === "all" && (
+                    <Button onClick={() => navigate(`/products/${id}/upload`)}>
+                      <Plus className="h-4 w-4 mr-2" /> Enviar Primeiro Criativo
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          <TabsContent value="roteiros" className="mt-4">
+            {product && <RoteiroList productId={product.id} productAcronym={product.acronym} />}
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* Preview Dialog */}
