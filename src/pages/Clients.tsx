@@ -50,14 +50,14 @@ const Clients = () => {
           </Button>
         </div>
 
-        {clients.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {clients.map((client) => (
-              <Card
-                key={client.id}
-                className="hub-card-shadow hover:shadow-lg transition-shadow cursor-pointer animate-fade-in"
-                onClick={() => navigate(`/clients/${client.id}`)}
-              >
+        {clients.length > 0 ?
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {clients.map((client) =>
+          <Card
+            key={client.id}
+            className="hub-card-shadow hover:shadow-lg transition-shadow cursor-pointer animate-fade-in"
+            onClick={() => navigate(`/clients/${client.id}`)}>
+
                 <CardContent className="p-6 space-y-4">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
@@ -72,7 +72,7 @@ const Clients = () => {
                         </div>
                       </div>
                     </div>
-                    <Badge variant="secondary" className="text-xs">Cliente</Badge>
+                    
                   </div>
                   <div className="flex items-center gap-2 text-sm text-muted-foreground pt-2 border-t border-border">
                     <FolderOpen className="h-4 w-4" />
@@ -80,10 +80,10 @@ const Clients = () => {
                   </div>
                 </CardContent>
               </Card>
-            ))}
-          </div>
-        ) : (
-          <Card className="hub-card-shadow">
+          )}
+          </div> :
+
+        <Card className="hub-card-shadow">
             <CardContent className="p-12 text-center">
               <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-lg font-semibold text-foreground mb-2">Nenhum cliente cadastrado</h3>
@@ -94,10 +94,10 @@ const Clients = () => {
               </Button>
             </CardContent>
           </Card>
-        )}
+        }
       </div>
-    </Layout>
-  );
+    </Layout>);
+
 };
 
 export default Clients;
