@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -7,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import {
-  Plus, FileText, Calendar, Video, MoreVertical, Pencil, Trash2, Upload,
+  Plus, FileText, Calendar, Video, MoreVertical, Pencil, Trash2, Upload, Send,
 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
@@ -34,13 +35,22 @@ interface RoteiroListProps {
   productAcronym: string;
 }
 
+const getFirstSentence = (text: string): string => {
+  if (!text) return "Sem conteúdo";
+  const match = text.match(/^[^.!?\n]+[.!?]?/);
+  const sentence = match ? match[0].trim() : text.trim();
+  return sentence.length > 120 ? sentence.substring(0, 120) + "..." : sentence;
+};
+
 const RoteiroList = ({ productId, productAcronym }: RoteiroListProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [roteiros, setRoteiros] = useState<Roteiro[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingRoteiro, setEditingRoteiro] = useState<Roteiro | null>(null);
+  const [dialogMode, setDialogMode] = useState<"view" | "edit" | "create">("create");
+  const [selectedRoteiro, setSelectedRoteiro] = useState<Roteiro | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
@@ -59,6 +69,7 @@ const RoteiroList = ({ productId, productAcronym }: RoteiroListProps) => {
   }, [fetchRoteiros]);
 
   const toggleRecorded = async (roteiro: Roteiro) => {
+    if (user?.role !== "GESTOR") return;
     const { error } = await supabase
       .from("roteiros")
       .update({ is_recorded: !roteiro.is_recorded })
@@ -87,9 +98,30 @@ const RoteiroList = ({ productId, productAcronym }: RoteiroListProps) => {
 
   const handleSaved = () => {
     setDialogOpen(false);
-    setEditingRoteiro(null);
+    setSelectedRoteiro(null);
     fetchRoteiros();
   };
+
+  const openView = (roteiro: Roteiro) => {
+    setSelectedRoteiro(roteiro);
+    setDialogMode("view");
+    setDialogOpen(true);
+  };
+
+  const openEdit = (roteiro: Roteiro) => {
+    setSelectedRoteiro(roteiro);
+    setDialogMode("edit");
+    setDialogOpen(true);
+  };
+
+  const openCreate = () => {
+    setSelectedRoteiro(null);
+    setDialogMode("create");
+    setDialogOpen(true);
+  };
+
+  const pendingCount = roteiros.filter((r) => !r.is_recorded).length;
+  const recordedCount = roteiros.filter((r) => r.is_recorded).length;
 
   if (loading) {
     return <div className="p-8 text-center text-muted-foreground">Carregando roteiros...</div>;
@@ -99,14 +131,24 @@ const RoteiroList = ({ productId, productAcronym }: RoteiroListProps) => {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-foreground">Roteiros</h2>
-        <Button
-          onClick={() => { setEditingRoteiro(null); setDialogOpen(true); }}
-          className="gap-2"
-          size="sm"
-        >
+        <Button onClick={openCreate} className="gap-2" size="sm">
           <Plus className="h-4 w-4" /> Novo Roteiro
         </Button>
       </div>
+
+      {/* Counts */}
+      {roteiros.length > 0 && (
+        <div className="flex items-center gap-3">
+          <Badge variant="secondary" className="gap-1.5 px-3 py-1">
+            <span className="text-amber-600 font-bold">{pendingCount}</span>
+            <span className="text-muted-foreground">pendente{pendingCount !== 1 ? "s" : ""}</span>
+          </Badge>
+          <Badge variant="secondary" className="gap-1.5 px-3 py-1">
+            <span className="text-green-600 font-bold">{recordedCount}</span>
+            <span className="text-muted-foreground">gravado{recordedCount !== 1 ? "s" : ""}</span>
+          </Badge>
+        </div>
+      )}
 
       {roteiros.length === 0 ? (
         <Card className="hub-card-shadow">
@@ -116,7 +158,7 @@ const RoteiroList = ({ productId, productAcronym }: RoteiroListProps) => {
             <p className="text-muted-foreground mb-4">
               Crie seu primeiro roteiro para organizar as gravações dos criativos.
             </p>
-            <Button onClick={() => { setEditingRoteiro(null); setDialogOpen(true); }}>
+            <Button onClick={openCreate}>
               <Plus className="h-4 w-4 mr-2" /> Criar Primeiro Roteiro
             </Button>
           </CardContent>
@@ -124,7 +166,11 @@ const RoteiroList = ({ productId, productAcronym }: RoteiroListProps) => {
       ) : (
         <div className="space-y-3">
           {roteiros.map((roteiro) => (
-            <Card key={roteiro.id} className="hub-card-shadow hover:shadow-md transition-shadow">
+            <Card
+              key={roteiro.id}
+              className="hub-card-shadow hover:shadow-md transition-shadow cursor-pointer"
+              onClick={() => openView(roteiro)}
+            >
               <CardContent className="p-4">
                 <div className="flex items-start gap-4">
                   <div className="p-2 rounded-lg bg-primary/10 shrink-0 mt-0.5">
@@ -144,8 +190,8 @@ const RoteiroList = ({ productId, productAcronym }: RoteiroListProps) => {
                       )}
                     </div>
 
-                    <p className="text-sm text-muted-foreground line-clamp-2">
-                      {roteiro.content || "Sem conteúdo"}
+                    <p className="text-sm text-muted-foreground">
+                      {getFirstSentence(roteiro.content)}
                     </p>
 
                     <div className="flex items-center gap-4 text-xs text-muted-foreground">
@@ -162,12 +208,13 @@ const RoteiroList = ({ productId, productAcronym }: RoteiroListProps) => {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3 shrink-0">
+                  <div className="flex items-center gap-3 shrink-0" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-muted-foreground">Gravado</span>
                       <Switch
                         checked={roteiro.is_recorded}
                         onCheckedChange={() => toggleRecorded(roteiro)}
+                        disabled={user?.role !== "GESTOR"}
                       />
                     </div>
 
@@ -178,8 +225,11 @@ const RoteiroList = ({ productId, productAcronym }: RoteiroListProps) => {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => { setEditingRoteiro(roteiro); setDialogOpen(true); }}>
+                        <DropdownMenuItem onClick={() => openEdit(roteiro)}>
                           <Pencil className="h-4 w-4 mr-2" /> Editar
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => navigate(`/products/${productId}/upload?roteiro_id=${roteiro.id}`)}>
+                          <Send className="h-4 w-4 mr-2" /> Enviar Criativo
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           className="text-destructive focus:text-destructive"
@@ -197,14 +247,16 @@ const RoteiroList = ({ productId, productAcronym }: RoteiroListProps) => {
         </div>
       )}
 
-      {/* Create/Edit Dialog */}
+      {/* Create/Edit/View Dialog */}
       <RoteiroDialog
         open={dialogOpen}
-        onOpenChange={(open) => { setDialogOpen(open); if (!open) setEditingRoteiro(null); }}
+        onOpenChange={(open) => { setDialogOpen(open); if (!open) setSelectedRoteiro(null); }}
         productId={productId}
         productAcronym={productAcronym}
-        roteiro={editingRoteiro}
+        roteiro={selectedRoteiro}
+        mode={dialogMode}
         onSaved={handleSaved}
+        onSendCreative={(roteiroId) => navigate(`/products/${productId}/upload?roteiro_id=${roteiroId}`)}
       />
 
       {/* Delete Confirmation */}
