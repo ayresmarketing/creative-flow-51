@@ -11,6 +11,7 @@ import CreativeUpload from "./pages/CreativeUpload";
 import Clients from "./pages/Clients";
 import Gestores from "./pages/Gestores";
 import ClientProducts from "./pages/ClientProducts";
+import Contents from "./pages/Contents";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -32,6 +33,7 @@ const App = () => (
             <Route path="/clients" element={<Clients />} />
             <Route path="/clients/:clientId" element={<ClientProducts />} />
             <Route path="/gestores" element={<Gestores />} />
+            <Route path="/conteudos" element={<Contents />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

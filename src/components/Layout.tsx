@@ -11,7 +11,8 @@ import {
   Shield,
   LogOut,
   User,
-  Crown
+  Crown,
+  BookOpen
 } from "lucide-react";
 
 interface LayoutProps {
@@ -29,9 +30,11 @@ const Layout = ({ children }: LayoutProps) => {
     ? [
         { name: "Clientes", href: "/clients", icon: Users },
         { name: "Gestores", href: "/gestores", icon: Shield },
+        { name: "Conteúdos", href: "/conteudos", icon: BookOpen },
       ]
     : [
         { name: "Produtos", href: "/products", icon: FolderOpen },
+        { name: "Conteúdos", href: "/conteudos", icon: BookOpen },
       ];
 
   const handleLogout = () => {
