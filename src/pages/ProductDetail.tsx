@@ -269,7 +269,32 @@ const ProductDetail = () => {
           </Button>
         </div>
 
-        {/* Tabs */}
+        {/* Last published per objective - Gestor only */}
+        {user?.role === "GESTOR" && (() => {
+          const publishedByObjective = creatives
+            .filter(c => c.status === "PUBLISHED")
+            .reduce<Record<string, Creative>>((acc, c) => {
+              if (!acc[c.objective]) acc[c.objective] = c;
+              return acc;
+            }, {});
+          const entries = Object.entries(publishedByObjective);
+          if (entries.length === 0) return null;
+          return (
+            <Card className="hub-card-shadow">
+              <CardContent className="p-4">
+                <p className="text-xs font-medium text-muted-foreground mb-2">Último publicado por objetivo</p>
+                <div className="flex flex-wrap gap-3">
+                  {entries.map(([objective, creative]) => (
+                    <div key={objective} className="flex items-center gap-2 bg-muted/50 rounded-md px-3 py-1.5">
+                      <span className="text-xs text-muted-foreground">{objective}:</span>
+                      <span className="text-xs font-mono font-semibold text-foreground">{creative.code}</span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })()}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList>
             <TabsTrigger value="criativos">Criativos</TabsTrigger>
