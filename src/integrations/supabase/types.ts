@@ -38,6 +38,71 @@ export type Database = {
         }
         Relationships: []
       }
+      content_completions: {
+        Row: {
+          completed_at: string
+          content_id: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string
+          content_id: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string
+          content_id?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_completions_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "contents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contents: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          position: number
+          support_file_name: string | null
+          support_file_path: string | null
+          title: string
+          updated_at: string
+          youtube_url: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          position?: number
+          support_file_name?: string | null
+          support_file_path?: string | null
+          title: string
+          updated_at?: string
+          youtube_url: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          position?: number
+          support_file_name?: string | null
+          support_file_path?: string | null
+          title?: string
+          updated_at?: string
+          youtube_url?: string
+        }
+        Relationships: []
+      }
       creative_files: {
         Row: {
           created_at: string
