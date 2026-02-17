@@ -160,7 +160,6 @@ const CreativeUpload = () => {
         const filePath = `${id}/${creative.id}/${format}/${Date.now()}_${file.name}`;
         const { error: upErr } = await supabase.storage.from("creatives").upload(filePath, file);
         if (upErr) {
-          console.error("Upload error:", upErr);
           continue;
         }
 
@@ -189,8 +188,7 @@ const CreativeUpload = () => {
       toast({ title: "Criativo enviado com sucesso!" });
       navigate(`/products/${id}`);
     } catch (err: any) {
-      console.error(err);
-      toast({ title: "Erro ao enviar criativo", description: err?.message || "Tente novamente.", variant: "destructive" });
+      toast({ title: "Erro ao enviar criativo", description: "Tente novamente.", variant: "destructive" });
     } finally {
       setSubmitting(false);
     }
