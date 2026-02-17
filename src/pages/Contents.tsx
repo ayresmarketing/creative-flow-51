@@ -98,8 +98,8 @@ const Contents = () => {
 
   const handleSupportDownload = async (content: Content) => {
     if (!content.support_file_path) return;
-    const { data } = supabase.storage.from("content-files").getPublicUrl(content.support_file_path);
-    window.open(data.publicUrl, "_blank");
+    const { data } = await supabase.storage.from("content-files").createSignedUrl(content.support_file_path, 3600);
+    if (data?.signedUrl) window.open(data.signedUrl, "_blank");
   };
 
   return (
