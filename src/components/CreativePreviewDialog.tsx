@@ -38,12 +38,23 @@ const CreativePreviewDialog = ({ open, onOpenChange, creativeId, creativeCode, c
       });
   }, [open, creativeId]);
 
-  const getPublicUrl = (path: string) => {
-    const { data } = supabase.storage.from("creatives").getPublicUrl(path);
-    return data.publicUrl;
-  };
+  const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (files.length === 0) return;
+    const fetchUrls = async () => {
+      const urls: Record<string, string> = {};
+      for (const file of files) {
+        const { data } = await supabase.storage.from("creatives").createSignedUrl(file.file_path, 3600);
+        if (data?.signedUrl) urls[file.file_path] = data.signedUrl;
+      }
+      setSignedUrls(urls);
+    };
+    fetchUrls();
+  }, [files]);
 
   const currentFile = files[currentIndex];
+  const currentUrl = currentFile ? signedUrls[currentFile.file_path] : undefined;
   const isVideo = creativeType === "VIDEO";
   const isCarousel = creativeType === "CAROUSEL";
 
@@ -51,11 +62,11 @@ const CreativePreviewDialog = ({ open, onOpenChange, creativeId, creativeCode, c
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[85vh] p-0 overflow-hidden">
         <DialogTitle className="px-4 pt-4 pb-2 text-sm font-semibold font-sans">{creativeCode}</DialogTitle>
-        {currentFile && (
+        {currentFile && currentUrl && (
           <div className="relative flex items-center justify-center bg-muted min-h-[300px] max-h-[70vh]">
             {isVideo ? (
               <video
-                src={getPublicUrl(currentFile.file_path)}
+                src={currentUrl}
                 controls
                 muted={muted}
                 className="max-w-full max-h-[70vh] object-contain"
@@ -63,7 +74,7 @@ const CreativePreviewDialog = ({ open, onOpenChange, creativeId, creativeCode, c
               />
             ) : (
               <img
-                src={getPublicUrl(currentFile.file_path)}
+                src={currentUrl}
                 alt={currentFile.file_name || "Creative"}
                 className="max-w-full max-h-[70vh] object-contain"
               />

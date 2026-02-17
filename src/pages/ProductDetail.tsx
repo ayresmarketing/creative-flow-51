@@ -95,8 +95,8 @@ const ProductDetail = () => {
           .limit(1);
         let thumbnail_url: string | null = null;
         if (files && files.length > 0) {
-          const { data } = supabase.storage.from("creatives").getPublicUrl(files[0].file_path);
-          thumbnail_url = data.publicUrl;
+          const { data } = await supabase.storage.from("creatives").createSignedUrl(files[0].file_path, 3600);
+          thumbnail_url = data?.signedUrl ?? null;
         }
         return { ...c, thumbnail_url };
       })
@@ -158,9 +158,10 @@ const ProductDetail = () => {
     }
 
     for (const file of files) {
-      const { data } = supabase.storage.from("creatives").getPublicUrl(file.file_path);
+      const { data } = await supabase.storage.from("creatives").createSignedUrl(file.file_path, 3600);
+      if (!data?.signedUrl) continue;
       const link = document.createElement("a");
-      link.href = data.publicUrl;
+      link.href = data.signedUrl;
       link.download = file.file_name || "creative-file";
       link.target = "_blank";
       document.body.appendChild(link);
