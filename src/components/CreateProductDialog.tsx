@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ArrowLeft, ArrowRight, ShoppingBag, BookOpen, Users, Briefcase } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -46,6 +47,7 @@ const CreateProductDialog = ({ open, onOpenChange, clientId, onCreated }: Create
   const [category, setCategory] = useState("");
   const [showFormPopup, setShowFormPopup] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [formConfirmed, setFormConfirmed] = useState(false);
 
   const reset = () => {
     setStep(1);
@@ -54,6 +56,7 @@ const CreateProductDialog = ({ open, onOpenChange, clientId, onCreated }: Create
     setCategory("");
     setShowFormPopup(false);
     setSaving(false);
+    setFormConfirmed(false);
   };
 
   const handleClose = (val: boolean) => {
@@ -213,7 +216,7 @@ const CreateProductDialog = ({ open, onOpenChange, clientId, onCreated }: Create
             <DialogTitle>Formulário — Infoproduto</DialogTitle>
             <DialogDescription>Preencha o formulário abaixo para continuar.</DialogDescription>
           </DialogHeader>
-          <div className="overflow-y-auto px-6 pb-6" style={{ maxHeight: "calc(90vh - 160px)" }}>
+          <div className="overflow-y-auto px-6 pb-6" style={{ maxHeight: "calc(90vh - 200px)" }}>
             <iframe
               src="https://docs.google.com/forms/d/e/1FAIpQLSdVJ3kfqGTtjrophYEhBDClWCQN9M4VEcnQML-66RZ8bTVf9w/viewform?embedded=true"
               width="100%"
@@ -226,10 +229,21 @@ const CreateProductDialog = ({ open, onOpenChange, clientId, onCreated }: Create
               Carregando…
             </iframe>
           </div>
-          <div className="p-4 border-t border-border flex justify-end">
-            <Button onClick={handleInfoprodutoFinish} disabled={saving}>
-              {saving ? "Criando..." : "Concluir e Criar Produto"}
-            </Button>
+          <div className="p-4 border-t border-border space-y-3">
+            <label className="flex items-center gap-3 cursor-pointer select-none">
+              <Checkbox
+                checked={formConfirmed}
+                onCheckedChange={(v) => setFormConfirmed(!!v)}
+              />
+              <span className="text-sm text-foreground">
+                Confirmei o envio do formulário (apareceu a tela de confirmação)
+              </span>
+            </label>
+            <div className="flex justify-end">
+              <Button onClick={handleInfoprodutoFinish} disabled={!formConfirmed || saving}>
+                {saving ? "Criando..." : "Concluir e Criar Produto"}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

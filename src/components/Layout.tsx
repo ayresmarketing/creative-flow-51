@@ -1,9 +1,10 @@
-import { ReactNode } from "react";
+import { ReactNode, useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import ayresLogo from "@/assets/ayres-logo.png";
 import { 
   FolderOpen, 
@@ -23,6 +24,21 @@ const Layout = ({ children }: LayoutProps) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const [clientLogoUrl, setClientLogoUrl] = useState<string | null>(null);
+
+  // Fetch client logo if role is CLIENTE
+  useEffect(() => {
+    if (user?.role === "CLIENTE" && user.clientId) {
+      (supabase as any)
+        .from("clients")
+        .select("logo_url")
+        .eq("id", user.clientId)
+        .single()
+        .then(({ data }: { data: { logo_url: string | null } | null }) => {
+          if (data?.logo_url) setClientLogoUrl(data.logo_url);
+        });
+    }
+  }, [user]);
 
   const isActive = (path: string) => location.pathname === path || location.pathname.startsWith(path + "/");
 
@@ -60,7 +76,9 @@ const Layout = ({ children }: LayoutProps) => {
           <div className="px-6 py-4 border-b border-border">
             <div className="flex items-center gap-3">
               <Avatar className="h-10 w-10">
-                <AvatarImage src="/placeholder.svg" alt={user?.name} />
+                {clientLogoUrl ? (
+                  <AvatarImage src={clientLogoUrl} alt={user?.name} className="object-cover" />
+                ) : null}
                 <AvatarFallback>
                   <User className="h-5 w-5" />
                 </AvatarFallback>
