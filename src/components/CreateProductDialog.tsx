@@ -71,17 +71,31 @@ const CreateProductDialog = ({ open, onOpenChange, clientId, onCreated }: Create
 
   const saveProduct = async () => {
     setSaving(true);
-    const { error } = await supabase.from("products").insert({
+    const { data: product, error } = await supabase.from("products").insert({
       name: productName.trim(),
       acronym: acronym.trim(),
       category,
       client_id: clientId,
-    });
+    }).select("id").single();
     setSaving(false);
 
-    if (error) {
-      toast({ title: "Erro ao criar produto", description: error.message, variant: "destructive" });
+    if (error || !product) {
+      toast({ title: "Erro ao criar produto", description: error?.message, variant: "destructive" });
       return false;
+    }
+
+    // Create Google Drive folder for the product
+    try {
+      await supabase.functions.invoke("google-drive-operations", {
+        body: {
+          action: "create_product_folder",
+          productName: productName.trim(),
+          productId: product.id,
+          clientId,
+        },
+      });
+    } catch (driveErr) {
+      console.warn("Drive product folder creation failed (non-blocking):", driveErr);
     }
 
     toast({ title: "Produto criado com sucesso!" });

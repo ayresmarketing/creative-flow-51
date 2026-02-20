@@ -69,6 +69,17 @@ const CreateClientDialog = ({ open, onOpenChange, onCreated }: CreateClientDialo
         }
       }
 
+      // Create Google Drive folder for the client
+      if (clientId) {
+        try {
+          await supabase.functions.invoke("google-drive-operations", {
+            body: { action: "create_client_folder", clientName: name.trim(), clientId },
+          });
+        } catch (driveErr) {
+          console.warn("Drive folder creation failed (non-blocking):", driveErr);
+        }
+      }
+
       setGeneratedPassword(result.generatedPassword);
       toast({
         title: "Cliente cadastrado!",
