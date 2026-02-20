@@ -191,6 +191,75 @@ export type Database = {
           },
         ]
       }
+      google_drive_folders: {
+        Row: {
+          client_id: string | null
+          created_at: string
+          folder_id: string
+          folder_name: string
+          id: string
+          product_id: string | null
+        }
+        Insert: {
+          client_id?: string | null
+          created_at?: string
+          folder_id: string
+          folder_name: string
+          id?: string
+          product_id?: string | null
+        }
+        Update: {
+          client_id?: string | null
+          created_at?: string
+          folder_id?: string
+          folder_name?: string
+          id?: string
+          product_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "google_drive_folders_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "google_drive_folders_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      google_drive_tokens: {
+        Row: {
+          access_token: string | null
+          created_at: string
+          expires_at: string | null
+          id: string
+          refresh_token: string
+          updated_at: string
+        }
+        Insert: {
+          access_token?: string | null
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          refresh_token: string
+          updated_at?: string
+        }
+        Update: {
+          access_token?: string | null
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          refresh_token?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       products: {
         Row: {
           acronym: string

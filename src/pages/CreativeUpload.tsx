@@ -185,6 +185,34 @@ const CreativeUpload = () => {
           .eq("id", roteiroId);
       }
 
+      // Upload files to Google Drive
+      try {
+        const { data: product } = await supabase
+          .from("products")
+          .select("client_id")
+          .eq("id", id)
+          .single();
+
+        if (product) {
+          const driveFiles = allFiles.map(({ file, format, position }) => ({
+            file_path: `${id}/${creative.id}/${format}/${Date.now()}_${file.name}`,
+            file_name: file.name,
+          }));
+
+          await supabase.functions.invoke("google-drive-operations", {
+            body: {
+              action: "upload_creative",
+              productId: id,
+              clientId: product.client_id,
+              creativeType,
+              files: driveFiles,
+            },
+          });
+        }
+      } catch (driveErr) {
+        console.warn("Drive upload failed (non-blocking):", driveErr);
+      }
+
       toast({ title: "Criativo enviado com sucesso!" });
       navigate(`/products/${id}`);
     } catch (err: any) {
