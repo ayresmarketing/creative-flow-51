@@ -42,7 +42,7 @@ const Gestores = () => {
   return (
     <Layout>
       <CreateGestorDialog open={createOpen} onOpenChange={setCreateOpen} onCreated={fetchGestors} />
-      <div className="p-8 space-y-8">
+      <div className="p-4 md:p-8 space-y-6 md:space-y-8">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-foreground">Gestores</h1>
@@ -55,7 +55,7 @@ const Gestores = () => {
         </div>
 
         {gestors.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
             {gestors.map((gestor) => (
               <Card key={gestor.user_id} className="hub-card-shadow animate-fade-in">
                 <CardContent className="p-6 space-y-4">
