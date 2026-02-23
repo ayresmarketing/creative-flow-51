@@ -1,1 +1,16 @@
 project_id = "ejjvrwwabopjgxovtbad"
+
+[functions.create-user]
+verify_jwt = false
+
+[functions.google-drive-auth]
+verify_jwt = false
+
+[functions.google-drive-callback]
+verify_jwt = false
+
+[functions.google-drive-operations]
+verify_jwt = false
+
+[functions.seed-users]
+verify_jwt = false

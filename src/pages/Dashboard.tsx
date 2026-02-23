@@ -67,7 +67,7 @@ const Dashboard = () => {
           onCreated={fetchProducts}
         />
       )}
-      <div className="p-8 space-y-8">
+      <div className="p-4 md:p-8 space-y-6 md:space-y-8">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -83,7 +83,7 @@ const Dashboard = () => {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 gap-6">
           <Card className="hub-card-shadow">
             <CardContent className="p-6">
               <div className="flex items-center gap-4">
@@ -115,7 +115,7 @@ const Dashboard = () => {
         </Card>
 
         {/* Products Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
           {filteredProducts.map((product) => (
             <Card 
               key={product.id} 

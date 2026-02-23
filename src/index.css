@@ -145,4 +145,41 @@ All colors MUST be HSL.
       transform: translateY(0); 
     }
   }
+
+  @keyframes floatSlow {
+    0%, 100% { transform: translate(0, 0); }
+    50% { transform: translate(30px, -20px); }
+  }
+
+  @keyframes floatSlowReverse {
+    0%, 100% { transform: translate(0, 0); }
+    50% { transform: translate(-30px, 20px); }
+  }
+
+  @keyframes floatMedium {
+    0%, 100% { transform: translate(0, 0); }
+    33% { transform: translate(-15px, 10px); }
+    66% { transform: translate(10px, -15px); }
+  }
+
+  @keyframes pulseSubtle {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 0.8; }
+  }
+
+  .animate-float-slow {
+    animation: floatSlow 12s ease-in-out infinite;
+  }
+
+  .animate-float-slow-reverse {
+    animation: floatSlowReverse 14s ease-in-out infinite;
+  }
+
+  .animate-float-medium {
+    animation: floatMedium 10s ease-in-out infinite;
+  }
+
+  .animate-pulse-subtle {
+    animation: pulseSubtle 3s ease-in-out infinite;
+  }
 }
