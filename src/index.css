@@ -182,4 +182,24 @@ All colors MUST be HSL.
   .animate-pulse-subtle {
     animation: pulseSubtle 3s ease-in-out infinite;
   }
+
+  @keyframes glassOrb {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    25% { transform: translateY(-12px) rotate(2deg); }
+    50% { transform: translateY(-6px) rotate(-1deg); }
+    75% { transform: translateY(-14px) rotate(1.5deg); }
+  }
+
+  @keyframes orbShine {
+    0%, 100% { opacity: 0.6; transform: rotate(0deg); }
+    50% { opacity: 0.9; transform: rotate(180deg); }
+  }
+
+  .animate-glass-orb {
+    animation: glassOrb 6s ease-in-out infinite;
+  }
+
+  .animate-orb-shine {
+    animation: orbShine 4s ease-in-out infinite;
+  }
 }
