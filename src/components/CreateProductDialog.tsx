@@ -90,6 +90,7 @@ const CreateProductDialog = ({ open, onOpenChange, clientId, onCreated }: Create
         body: {
           action: "create_product_folder",
           productName: productName.trim(),
+          productAcronym: acronym.trim(),
           productId: product.id,
           clientId,
         },

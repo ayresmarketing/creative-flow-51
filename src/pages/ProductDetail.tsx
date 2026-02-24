@@ -160,13 +160,21 @@ const ProductDetail = () => {
     for (const file of files) {
       const { data } = await supabase.storage.from("creatives").createSignedUrl(file.file_path, 3600);
       if (!data?.signedUrl) continue;
-      const link = document.createElement("a");
-      link.href = data.signedUrl;
-      link.download = file.file_name || "creative-file";
-      link.target = "_blank";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      try {
+        const response = await fetch(data.signedUrl);
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = file.file_name || "creative-file";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      } catch {
+        // Fallback: open in new tab
+        window.open(data.signedUrl, "_blank");
+      }
     }
   };
 
