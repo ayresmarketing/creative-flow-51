@@ -5,6 +5,9 @@ import { corsHeaders } from "../_shared/cors.ts";
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+const OBJECTIVES = ["Vendas", "Conteúdo", "Lembrete", "Remarketing", "Captação", "Carrinho Aberto", "Outro"];
+const MEDIA_TYPES = ["Fotos", "Vídeos", "Carrosséis"];
+
 async function getAccessToken(supabase: any): Promise<string> {
   const { data: tokenRow } = await supabase
     .from("google_drive_tokens")
@@ -13,7 +16,7 @@ async function getAccessToken(supabase: any): Promise<string> {
     .limit(1)
     .single();
 
-  if (!tokenRow) throw new Error("Google Drive não conectado. Faça a autorização primeiro.");
+  if (!tokenRow) throw new Error("Google Drive não conectado.");
 
   if (tokenRow.expires_at && new Date(tokenRow.expires_at) < new Date()) {
     const clientId = Deno.env.get("cliente_id");
@@ -64,6 +67,22 @@ async function createFolder(accessToken: string, name: string, parentId: string)
   const data = await res.json();
   if (!res.ok) throw new Error(`Erro ao criar pasta: ${JSON.stringify(data)}`);
   return data.id;
+}
+
+async function findFolder(accessToken: string, parentId: string, name: string): Promise<string | null> {
+  const q = `'${parentId}' in parents and name='${name}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+  const res = await fetch(
+    `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name)&supportsAllDrives=true&includeItemsFromAllDrives=true`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+  const data = await res.json();
+  return data.files?.[0]?.id || null;
+}
+
+async function findOrCreateFolder(accessToken: string, parentId: string, name: string): Promise<string> {
+  const existing = await findFolder(accessToken, parentId, name);
+  if (existing) return existing;
+  return await createFolder(accessToken, name, parentId);
 }
 
 async function uploadFile(
@@ -136,7 +155,9 @@ serve(async (req) => {
       }
 
       case "create_product_folder": {
-        const { productName, productId, clientId } = params;
+        const { productName, productId, clientId, productAcronym } = params;
+        // Use acronym if provided, otherwise fall back to product name
+        const folderDisplayName = productAcronym || productName;
 
         const { data: clientFolder } = await supabase
           .from("google_drive_folders")
@@ -147,25 +168,30 @@ serve(async (req) => {
 
         if (!clientFolder) throw new Error("Pasta do cliente não encontrada no Drive");
 
-        const folderId = await createFolder(accessToken, productName, clientFolder.folder_id);
+        // Create product folder with acronym
+        const folderId = await createFolder(accessToken, folderDisplayName, clientFolder.folder_id);
 
-        const photoFolder = await createFolder(accessToken, "Fotos", folderId);
-        const videoFolder = await createFolder(accessToken, "Vídeos", folderId);
-        const carouselFolder = await createFolder(accessToken, "Carrosséis", folderId);
+        // Create objective subfolders, each with Fotos/Vídeos/Carrosséis inside
+        for (const objective of OBJECTIVES) {
+          const objFolderId = await createFolder(accessToken, objective, folderId);
+          for (const mediaType of MEDIA_TYPES) {
+            await createFolder(accessToken, mediaType, objFolderId);
+          }
+        }
 
         await supabase.from("google_drive_folders").insert({
           client_id: clientId,
           product_id: productId,
           folder_id: folderId,
-          folder_name: productName,
+          folder_name: folderDisplayName,
         });
 
-        result = { folderId, subFolders: { photoFolder, videoFolder, carouselFolder } };
+        result = { folderId };
         break;
       }
 
       case "upload_creative": {
-        const { productId, creativeType, files } = params;
+        const { productId, creativeType, objective, files } = params;
 
         const { data: productFolder } = await supabase
           .from("google_drive_folders")
@@ -175,18 +201,13 @@ serve(async (req) => {
 
         if (!productFolder) throw new Error("Pasta do produto não encontrada no Drive");
 
-        const subfolder = creativeType === "PHOTO" ? "Fotos" : creativeType === "VIDEO" ? "Vídeos" : "Carrosséis";
+        // Navigate: Product > Objective > MediaType
+        const mediaSubfolder = creativeType === "PHOTO" ? "Fotos" : creativeType === "VIDEO" ? "Vídeos" : "Carrosséis";
 
-        const listRes = await fetch(
-          `https://www.googleapis.com/drive/v3/files?q='${productFolder.folder_id}'+in+parents+and+name='${subfolder}'+and+mimeType='application/vnd.google-apps.folder'&fields=files(id,name)&supportsAllDrives=true&includeItemsFromAllDrives=true`,
-          { headers: { Authorization: `Bearer ${accessToken}` } }
-        );
-        const listData = await listRes.json();
-        let targetFolderId = listData.files?.[0]?.id;
-
-        if (!targetFolderId) {
-          targetFolderId = await createFolder(accessToken, subfolder, productFolder.folder_id);
-        }
+        // Find or create the objective folder
+        const objFolderId = await findOrCreateFolder(accessToken, productFolder.folder_id, objective);
+        // Find or create the media type folder inside objective
+        const targetFolderId = await findOrCreateFolder(accessToken, objFolderId, mediaSubfolder);
 
         const uploadedIds: string[] = [];
         for (const file of files) {

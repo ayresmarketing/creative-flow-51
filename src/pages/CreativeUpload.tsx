@@ -187,25 +187,20 @@ const CreativeUpload = () => {
 
       // Upload files to Google Drive
       try {
-        const { data: product } = await supabase
-          .from("products")
-          .select("client_id")
-          .eq("id", id)
-          .single();
+        // Collect actual uploaded file paths from the creative_files we just inserted
+        const { data: uploadedFiles } = await supabase
+          .from("creative_files")
+          .select("file_path, file_name")
+          .eq("creative_id", creative.id);
 
-        if (product) {
-          const driveFiles = allFiles.map(({ file, format, position }) => ({
-            file_path: `${id}/${creative.id}/${format}/${Date.now()}_${file.name}`,
-            file_name: file.name,
-          }));
-
+        if (uploadedFiles && uploadedFiles.length > 0) {
           await supabase.functions.invoke("google-drive-operations", {
             body: {
               action: "upload_creative",
               productId: id,
-              clientId: product.client_id,
               creativeType,
-              files: driveFiles,
+              objective,
+              files: uploadedFiles,
             },
           });
         }

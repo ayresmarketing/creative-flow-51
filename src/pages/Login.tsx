@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import ayresLogo from "@/assets/ayres-logo.png";
@@ -24,11 +23,7 @@ const Login = () => {
     try {
       const result = await login(email, password);
       if (result) {
-        if (result.role === "GESTOR") {
-          navigate("/clients");
-        } else {
-          navigate("/products");
-        }
+        navigate(result.role === "GESTOR" ? "/clients" : "/products");
       } else {
         setError("Email ou senha inválidos");
       }
@@ -40,97 +35,95 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center relative overflow-hidden p-4">
-      {/* Animated background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-success/5" />
-      <div className="absolute inset-0">
-        <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] rounded-full bg-primary/5 blur-3xl animate-float-slow" />
-        <div className="absolute bottom-[-20%] right-[-10%] w-[400px] h-[400px] rounded-full bg-success/5 blur-3xl animate-float-slow-reverse" />
-        <div className="absolute top-[30%] right-[20%] w-[200px] h-[200px] rounded-full bg-primary/3 blur-2xl animate-float-medium" />
+    <div className="min-h-screen flex flex-col lg:flex-row">
+      {/* Left Panel - Branding */}
+      <div className="relative lg:w-[55%] min-h-[280px] lg:min-h-screen bg-gradient-to-br from-[hsl(217,91%,45%)] via-[hsl(217,91%,55%)] to-[hsl(210,80%,65%)] overflow-hidden flex items-center justify-center p-8 lg:p-16">
+        {/* Decorative spheres */}
+        <div className="absolute -bottom-20 -left-20 w-72 h-72 rounded-full bg-[hsl(217,91%,35%)] opacity-60 animate-float-slow" />
+        <div className="absolute top-[10%] right-[5%] w-48 h-48 rounded-full bg-[hsl(217,91%,50%)] opacity-50 animate-float-medium" />
+        <div className="absolute bottom-[15%] right-[15%] w-32 h-32 rounded-full bg-[hsl(210,80%,60%)] opacity-40 animate-float-slow-reverse" />
+        <div className="absolute top-[40%] left-[10%] w-20 h-20 rounded-full bg-[hsl(217,91%,70%)] opacity-30 animate-float-medium" />
+
+        <div className="relative z-10 text-center lg:text-left max-w-lg">
+          <img
+            src={ayresLogo}
+            alt="Ayres Marketing"
+            className="w-16 h-16 lg:w-20 lg:h-20 rounded-2xl object-contain mb-6 mx-auto lg:mx-0 shadow-lg"
+          />
+          <h1 className="text-3xl lg:text-5xl font-bold text-white tracking-tight leading-tight">
+            Controle de<br />Criativos
+          </h1>
+          <p className="mt-4 text-white/80 text-sm lg:text-base max-w-sm">
+            Gerencie seus criativos de forma organizada. Fotos, vídeos e carrosséis em um só lugar.
+          </p>
+        </div>
       </div>
 
-      <div className="w-full max-w-md space-y-6 relative z-10">
-        {/* Logo */}
-        <div className="text-center animate-fade-in">
-          <div className="relative inline-block">
-            <div className="absolute inset-0 rounded-2xl bg-primary/10 blur-xl scale-150 animate-pulse-subtle" />
-            <img
-              src={ayresLogo}
-              alt="Ayres Marketing"
-              className="relative mx-auto w-24 h-24 rounded-2xl mb-4 object-contain transition-transform duration-500 hover:scale-105"
-            />
-          </div>
-          <h1 className="text-3xl font-bold text-foreground tracking-tight">Ayres Marketing</h1>
-          <p className="text-muted-foreground mt-2">Sistema para controle de criativos</p>
-        </div>
-
-        {/* Login Form */}
-        <Card className="hub-card-shadow animate-slide-up backdrop-blur-sm bg-card/95 border-border/50">
-          <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl text-center">Entrar</CardTitle>
-            <CardDescription className="text-center">
+      {/* Right Panel - Form */}
+      <div className="flex-1 flex items-center justify-center p-6 lg:p-16 bg-background">
+        <div className="w-full max-w-sm space-y-8">
+          <div>
+            <h2 className="text-2xl font-bold text-foreground">Entrar</h2>
+            <p className="text-muted-foreground mt-1 text-sm">
               Digite suas credenciais para acessar o sistema
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">E-mail</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="seu@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  className="transition-all duration-300 focus:shadow-[0_0_0_3px_hsl(var(--primary)/0.1)] focus:border-primary/50"
-                />
-              </div>
-              <div className="space-y-2">
+            </p>
+          </div>
+
+          <form onSubmit={handleLogin} className="space-y-5">
+            <div className="space-y-2">
+              <Label htmlFor="email">E-mail</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="seu@email.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="h-11"
+              />
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
                 <Label htmlFor="password">Senha</Label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    className="transition-all duration-300 focus:shadow-[0_0_0_3px_hsl(var(--primary)/0.1)] focus:border-primary/50"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4 text-muted-foreground" />
-                    ) : (
-                      <Eye className="h-4 w-4 text-muted-foreground" />
-                    )}
-                  </Button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {showPassword ? "OCULTAR" : "MOSTRAR"}
+                </button>
               </div>
-              {error && <p className="text-sm text-destructive text-center animate-fade-in">{error}</p>}
-              <Button 
-                type="submit" 
-                className="w-full hub-shadow transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]" 
-                disabled={loading}
-              >
-                {loading ? (
-                  <span className="flex items-center gap-2">
-                    <span className="h-4 w-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-                    Entrando...
-                  </span>
-                ) : (
-                  "Entrar"
-                )}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+              <Input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="h-11"
+              />
+            </div>
+
+            {error && (
+              <p className="text-sm text-destructive text-center animate-fade-in">{error}</p>
+            )}
+
+            <Button
+              type="submit"
+              className="w-full h-11 text-base font-semibold hub-shadow"
+              disabled={loading}
+            >
+              {loading ? (
+                <span className="flex items-center gap-2">
+                  <span className="h-4 w-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                  Entrando...
+                </span>
+              ) : (
+                "Entrar"
+              )}
+            </Button>
+          </form>
+        </div>
       </div>
     </div>
   );
