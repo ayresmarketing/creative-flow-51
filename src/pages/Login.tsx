@@ -48,12 +48,10 @@ const Login = () => {
           <img
             src={ayresLogo}
             alt="Ayres Marketing"
-            className="w-24 h-24 lg:w-20 lg:h-20 rounded-2xl object-contain mb-6 mx-auto lg:mx-0 shadow-lg"
+            className="w-16 h-16 lg:w-20 lg:h-20 rounded-2xl object-contain mb-6 mx-auto lg:mx-0 shadow-lg"
           />
           <h1 className="text-3xl lg:text-5xl font-bold text-white tracking-tight leading-tight">
-            Controle de
-            <br />
-            Criativos
+            Controle de<br />Criativos
           </h1>
           <p className="mt-4 text-white/80 text-sm lg:text-base max-w-sm">
             Gerencie seus criativos de forma organizada. Fotos, vídeos e carrosséis em um só lugar.
@@ -66,7 +64,9 @@ const Login = () => {
         <div className="w-full max-w-sm space-y-8">
           <div>
             <h2 className="text-2xl font-bold text-foreground">Entrar</h2>
-            <p className="text-muted-foreground mt-1 text-sm">Digite suas credenciais para acessar o sistema</p>
+            <p className="text-muted-foreground mt-1 text-sm">
+              Digite suas credenciais para acessar o sistema
+            </p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-5">
@@ -104,9 +104,15 @@ const Login = () => {
               />
             </div>
 
-            {error && <p className="text-sm text-destructive text-center animate-fade-in">{error}</p>}
+            {error && (
+              <p className="text-sm text-destructive text-center animate-fade-in">{error}</p>
+            )}
 
-            <Button type="submit" className="w-full h-11 text-base font-semibold hub-shadow" disabled={loading}>
+            <Button
+              type="submit"
+              className="w-full h-11 text-base font-semibold hub-shadow"
+              disabled={loading}
+            >
               {loading ? (
                 <span className="flex items-center gap-2">
                   <span className="h-4 w-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
