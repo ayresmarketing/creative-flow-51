@@ -45,11 +45,13 @@ const Login = () => {
         <div className="absolute top-[40%] left-[10%] w-20 h-20 rounded-full bg-[hsl(217,91%,70%)] opacity-30 animate-float-medium" />
 
         <div className="relative z-10 text-center lg:text-left max-w-lg">
-          <img
-            src={ayresLogo}
-            alt="Ayres Marketing"
-            className="w-16 h-16 lg:w-20 lg:h-20 rounded-2xl object-contain mb-6 mx-auto lg:mx-0 shadow-lg"
-          />
+          <div className="w-20 h-20 lg:w-24 lg:h-24 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.12),inset_0_1px_0_rgba(255,255,255,0.2)] flex items-center justify-center mb-6 mx-auto lg:mx-0">
+            <img
+              src={ayresLogo}
+              alt="Ayres Marketing"
+              className="w-14 h-14 lg:w-16 lg:h-16 object-contain drop-shadow-lg"
+            />
+          </div>
           <h1 className="text-3xl lg:text-5xl font-bold text-white tracking-tight leading-tight">
             Controle de<br />Criativos
           </h1>
