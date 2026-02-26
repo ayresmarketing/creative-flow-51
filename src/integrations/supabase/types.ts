@@ -19,6 +19,7 @@ export type Database = {
           created_at: string
           email: string
           id: string
+          is_suspended: boolean
           logo_url: string | null
           name: string
           user_id: string | null
@@ -27,6 +28,7 @@ export type Database = {
           created_at?: string
           email: string
           id?: string
+          is_suspended?: boolean
           logo_url?: string | null
           name: string
           user_id?: string | null
@@ -35,6 +37,7 @@ export type Database = {
           created_at?: string
           email?: string
           id?: string
+          is_suspended?: boolean
           logo_url?: string | null
           name?: string
           user_id?: string | null

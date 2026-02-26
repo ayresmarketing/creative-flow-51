@@ -24,14 +24,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, Users, Mail, FolderOpen, Search, MoreVertical, Trash2 } from "lucide-react";
+import { Plus, Users, Mail, FolderOpen, Search, MoreVertical, Trash2, Ban, RotateCcw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Badge } from "@/components/ui/badge";
 
 interface ClientRecord {
   id: string;
   name: string;
   email: string;
   logo_url?: string | null;
+  is_suspended?: boolean;
 }
 
 const Clients = () => {
@@ -47,16 +49,9 @@ const Clients = () => {
   const fetchClients = useCallback(async () => {
     const { data } = await supabase
       .from("clients")
-      .select("id, name, email")
+      .select("id, name, email, logo_url, is_suspended")
       .order("created_at", { ascending: false });
-    // Fetch logo_url separately since column was just added
-    const clientsWithLogo = await Promise.all(
-      (data || []).map(async (c) => {
-        const { data: extra } = await (supabase as any).from("clients").select("logo_url").eq("id", c.id).single();
-        return { ...c, logo_url: extra?.logo_url ?? null };
-      })
-    );
-    setClients(clientsWithLogo);
+    setClients((data || []) as ClientRecord[]);
   }, []);
 
   useEffect(() => {
@@ -85,6 +80,17 @@ const Clients = () => {
     }
     setDeleteOpen(false);
     setDeleteClientId(null);
+  };
+
+  const handleToggleSuspend = async (client: ClientRecord) => {
+    const newStatus = !client.is_suspended;
+    const { error } = await supabase.from("clients").update({ is_suspended: newStatus } as any).eq("id", client.id);
+    if (error) {
+      toast({ title: "Erro", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: newStatus ? "Cliente suspenso" : "Cliente reativado" });
+      setClients((prev) => prev.map((c) => c.id === client.id ? { ...c, is_suspended: newStatus } : c));
+    }
   };
 
   return (
@@ -154,6 +160,15 @@ const Clients = () => {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem
+                        onClick={() => handleToggleSuspend(client)}
+                      >
+                        {client.is_suspended ? (
+                          <><RotateCcw className="h-4 w-4 mr-2" />Reativar cliente</>
+                        ) : (
+                          <><Ban className="h-4 w-4 mr-2" />Suspender cliente</>
+                        )}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
                         className="text-destructive focus:text-destructive"
                         onClick={() => {
                           setDeleteClientId(client.id);
@@ -188,6 +203,11 @@ const Clients = () => {
                       </div>
                     </div>
                   </div>
+                  {client.is_suspended && (
+                    <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-700">
+                      Suspenso
+                    </Badge>
+                  )}
                   <div className="flex items-center gap-2 text-sm text-muted-foreground pt-2 border-t border-border">
                     <FolderOpen className="h-4 w-4" />
                     <span>Ver produtos</span>
