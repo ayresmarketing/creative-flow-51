@@ -52,7 +52,7 @@ const Login = () => {
             className="w-16 h-16 lg:w-20 lg:h-20 rounded-2xl object-contain mb-6 mx-auto lg:mx-0 shadow-lg"
           />
           <h1 className="text-3xl lg:text-5xl font-bold text-white tracking-tight leading-tight">
-            Controle de<br />Criativos
+            Controle de<br />Criativos.
           </h1>
           <p className="mt-4 text-white/80 text-sm lg:text-base max-w-sm">
             Gerencie seus criativos de forma organizada. Fotos, vídeos e carrosséis em um só lugar.
