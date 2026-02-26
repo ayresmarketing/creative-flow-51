@@ -125,7 +125,7 @@ const Login = () => {
                   Entrando...
                 </span>
               ) : (
-                "Entrar"
+                "Acessar Sistema"
               )}
             </Button>
           </form>
