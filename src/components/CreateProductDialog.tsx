@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowLeft, ArrowRight, ShoppingBag, BookOpen, Users, Briefcase, Loader2, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, ShoppingBag, BookOpen, Users, Briefcase } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -48,9 +48,6 @@ const CreateProductDialog = ({ open, onOpenChange, clientId, onCreated }: Create
   const [showFormPopup, setShowFormPopup] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formConfirmed, setFormConfirmed] = useState(false);
-  // New states for loading/success popup
-  const [creatingPopup, setCreatingPopup] = useState(false);
-  const [createdSuccess, setCreatedSuccess] = useState(false);
 
   const reset = () => {
     setStep(1);
@@ -60,8 +57,6 @@ const CreateProductDialog = ({ open, onOpenChange, clientId, onCreated }: Create
     setShowFormPopup(false);
     setSaving(false);
     setFormConfirmed(false);
-    setCreatingPopup(false);
-    setCreatedSuccess(false);
   };
 
   const handleClose = (val: boolean) => {
@@ -76,20 +71,16 @@ const CreateProductDialog = ({ open, onOpenChange, clientId, onCreated }: Create
 
   const saveProduct = async () => {
     setSaving(true);
-    setCreatingPopup(true);
-    setCreatedSuccess(false);
-
     const { data: product, error } = await supabase.from("products").insert({
       name: productName.trim(),
       acronym: acronym.trim(),
       category,
       client_id: clientId,
     }).select("id").single();
+    setSaving(false);
 
     if (error || !product) {
       toast({ title: "Erro ao criar produto", description: error?.message, variant: "destructive" });
-      setSaving(false);
-      setCreatingPopup(false);
       return false;
     }
 
@@ -108,8 +99,7 @@ const CreateProductDialog = ({ open, onOpenChange, clientId, onCreated }: Create
       console.warn("Drive product folder creation failed (non-blocking):", driveErr);
     }
 
-    setSaving(false);
-    setCreatedSuccess(true);
+    toast({ title: "Produto criado com sucesso!" });
     onCreated?.();
     return true;
   };
@@ -122,25 +112,21 @@ const CreateProductDialog = ({ open, onOpenChange, clientId, onCreated }: Create
   };
 
   const handleFinish = async () => {
-    await saveProduct();
+    const ok = await saveProduct();
+    if (ok) handleClose(false);
   };
 
   const handleInfoprodutoFinish = async () => {
     const ok = await saveProduct();
     if (ok) {
       setShowFormPopup(false);
+      handleClose(false);
     }
-  };
-
-  const handleGoToDash = () => {
-    reset();
-    onOpenChange(false);
   };
 
   return (
     <>
-      {/* Main create dialog - hidden when creating popup is shown */}
-      <Dialog open={open && !creatingPopup} onOpenChange={handleClose}>
+      <Dialog open={open} onOpenChange={handleClose}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>
@@ -235,38 +221,6 @@ const CreateProductDialog = ({ open, onOpenChange, clientId, onCreated }: Create
               </Button>
             )}
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Creating / Success popup */}
-      <Dialog open={creatingPopup} onOpenChange={() => {}}>
-        <DialogContent className="sm:max-w-sm text-center [&>button]:hidden">
-          {!createdSuccess ? (
-            <div className="flex flex-col items-center gap-4 py-6">
-              <Loader2 className="h-12 w-12 text-primary animate-spin" />
-              <div>
-                <DialogTitle className="text-lg">Criando seu produto</DialogTitle>
-                <p className="text-sm text-muted-foreground mt-2">
-                  Seu produto está sendo criado, aguarde alguns instantes...
-                </p>
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center gap-4 py-6">
-              <div className="h-16 w-16 rounded-full bg-green-100 flex items-center justify-center">
-                <CheckCircle2 className="h-8 w-8 text-green-600" />
-              </div>
-              <div>
-                <DialogTitle className="text-lg">Produto criado!</DialogTitle>
-                <p className="text-sm text-muted-foreground mt-2">
-                  Seu produto <span className="font-semibold text-foreground">{productName}</span> foi criado com sucesso.
-                </p>
-              </div>
-              <Button onClick={handleGoToDash} className="mt-2">
-                Voltar ao Painel
-              </Button>
-            </div>
-          )}
         </DialogContent>
       </Dialog>
 

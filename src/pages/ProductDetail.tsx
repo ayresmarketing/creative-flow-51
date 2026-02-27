@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import {
   Plus, Search, Image, Video, Layers, MoreVertical, Calendar,
   Play, ArrowLeft, Table as TableIcon, LayoutGrid, CheckCircle2, Circle,
-  Eye, Trash2, Download, Monitor, Smartphone
+  Eye, Trash2, Download
 } from "lucide-react";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -68,7 +68,6 @@ const ProductDetail = () => {
   // Preview dialog
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewCreative, setPreviewCreative] = useState<Creative | null>(null);
-  const [previewFormat, setPreviewFormat] = useState<string | undefined>(undefined);
 
   // Delete dialog
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -84,6 +83,7 @@ const ProductDetail = () => {
     ]);
     setProduct(prodRes.data);
 
+    // Fetch thumbnails for each creative
     const creativesData = creatRes.data || [];
     const creativesWithThumbs = await Promise.all(
       creativesData.map(async (c) => {
@@ -121,6 +121,7 @@ const ProductDetail = () => {
 
   const handleDelete = async () => {
     if (!deleteCreativeId) return;
+    // Delete files from storage first
     const { data: files } = await supabase
       .from("creative_files")
       .select("file_path")
@@ -130,7 +131,9 @@ const ProductDetail = () => {
       await supabase.storage.from("creatives").remove(files.map(f => f.file_path));
     }
 
+    // Delete creative_files records
     await supabase.from("creative_files").delete().eq("creative_id", deleteCreativeId);
+    // Delete creative
     const { error } = await supabase.from("creatives").delete().eq("id", deleteCreativeId);
     if (error) {
       toast({ title: "Erro ao excluir criativo", variant: "destructive" });
@@ -169,6 +172,7 @@ const ProductDetail = () => {
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
       } catch {
+        // Fallback: open in new tab
         window.open(data.signedUrl, "_blank");
       }
     }
@@ -215,17 +219,6 @@ const ProductDetail = () => {
     }
   };
 
-  const hasBothFormats = (creative: Creative) =>
-    creative.formats.includes("Feed") && creative.formats.includes("Stories");
-
-  const openPreview = (creative: Creative, format?: string) => {
-    setPreviewCreative(creative);
-    setPreviewFormat(format);
-    setPreviewOpen(true);
-  };
-
-  const isGestor = user?.role === "GESTOR";
-
   const CreativeDropdownMenu = ({ creative }: { creative: Creative }) => (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -234,35 +227,22 @@ const ProductDetail = () => {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        {hasBothFormats(creative) ? (
-          <>
-            <DropdownMenuItem onClick={() => openPreview(creative, "Feed")}>
-              <Monitor className="h-4 w-4 mr-2" /> Ver como Feed
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => openPreview(creative, "Stories")}>
-              <Smartphone className="h-4 w-4 mr-2" /> Ver como Stories
-            </DropdownMenuItem>
-          </>
-        ) : (
-          <DropdownMenuItem onClick={() => openPreview(creative)}>
-            <Eye className="h-4 w-4 mr-2" /> Pré-visualizar
-          </DropdownMenuItem>
-        )}
+        <DropdownMenuItem onClick={() => { setPreviewCreative(creative); setPreviewOpen(true); }}>
+          <Eye className="h-4 w-4 mr-2" /> Pré-visualizar
+        </DropdownMenuItem>
         <DropdownMenuItem onClick={() => handleDownload(creative)}>
           <Download className="h-4 w-4 mr-2" /> Baixar
         </DropdownMenuItem>
-        {isGestor && (
-          <>
-            <DropdownMenuItem
-              className="text-destructive focus:text-destructive"
-              onClick={() => { setDeleteCreativeId(creative.id); setDeleteOpen(true); }}
-            >
-              <Trash2 className="h-4 w-4 mr-2" /> Excluir
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => toggleStatus(creative.id, creative.status)}>
-              {creative.status === "PUBLISHED" ? "Marcar como Pendente" : "Marcar como Publicado"}
-            </DropdownMenuItem>
-          </>
+        <DropdownMenuItem
+          className="text-destructive focus:text-destructive"
+          onClick={() => { setDeleteCreativeId(creative.id); setDeleteOpen(true); }}
+        >
+          <Trash2 className="h-4 w-4 mr-2" /> Excluir
+        </DropdownMenuItem>
+        {user?.role === "GESTOR" && (
+          <DropdownMenuItem onClick={() => toggleStatus(creative.id, creative.status)}>
+            {creative.status === "PUBLISHED" ? "Marcar como Pendente" : "Marcar como Publicado"}
+          </DropdownMenuItem>
         )}
       </DropdownMenuContent>
     </DropdownMenu>
@@ -278,28 +258,28 @@ const ProductDetail = () => {
 
   return (
     <Layout>
-      <div className="p-4 md:p-8 space-y-4 md:space-y-6">
+      <div className="p-8 space-y-6">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
-          <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="gap-2 self-start">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="gap-2">
             <ArrowLeft className="h-4 w-4" /> Voltar
           </Button>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="text-2xl md:text-3xl font-bold text-foreground">{product.name}</h1>
+          <div className="flex-1">
+            <div className="flex items-center gap-3">
+              <h1 className="text-3xl font-bold text-foreground">{product.name}</h1>
               <Badge variant="outline" className="font-mono text-base px-3 py-1">{product.acronym}</Badge>
             </div>
-            <p className="text-muted-foreground mt-1 text-sm">
+            <p className="text-muted-foreground mt-1">
               {product.category} • Criado em {new Date(product.created_at).toLocaleDateString("pt-BR")}
             </p>
           </div>
-          <Button onClick={() => navigate(`/products/${id}/upload`)} className="hub-shadow gap-2 self-start sm:self-auto">
+          <Button onClick={() => navigate(`/products/${id}/upload`)} className="hub-shadow gap-2">
             <Plus className="h-4 w-4" /> Enviar Criativo
           </Button>
         </div>
 
         {/* Last published per objective - Gestor only */}
-        {isGestor && (() => {
+        {user?.role === "GESTOR" && (() => {
           const publishedByObjective = creatives
             .filter(c => c.status === "PUBLISHED")
             .reduce<Record<string, Creative>>((acc, c) => {
@@ -330,16 +310,16 @@ const ProductDetail = () => {
             <TabsTrigger value="roteiros">Roteiros</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="criativos" className="space-y-4 md:space-y-6 mt-4">
+          <TabsContent value="criativos" className="space-y-6 mt-4">
             {/* Filters */}
             <Card className="hub-card-shadow">
-              <CardContent className="p-3 md:p-4">
-                <div className="flex flex-col gap-3">
+              <CardContent className="p-4">
+                <div className="flex flex-col sm:flex-row gap-3">
                   <div className="flex-1 relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input placeholder="Buscar criativos..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" />
                   </div>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex gap-2">
                     <Select value={typeFilter} onValueChange={setTypeFilter}>
                       <SelectTrigger className="w-28"><SelectValue placeholder="Tipo" /></SelectTrigger>
                       <SelectContent>
@@ -349,16 +329,14 @@ const ProductDetail = () => {
                         <SelectItem value="carousel">Carrosséis</SelectItem>
                       </SelectContent>
                     </Select>
-                    {isGestor && (
-                      <Select value={statusFilter} onValueChange={setStatusFilter}>
-                        <SelectTrigger className="w-28"><SelectValue placeholder="Status" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Todos</SelectItem>
-                          <SelectItem value="published">Publicados</SelectItem>
-                          <SelectItem value="pending">Pendentes</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    )}
+                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                      <SelectTrigger className="w-28"><SelectValue placeholder="Status" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos</SelectItem>
+                        <SelectItem value="published">Publicados</SelectItem>
+                        <SelectItem value="pending">Pendentes</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <div className="flex border rounded-md">
                       <Button variant={viewMode === "grid" ? "default" : "ghost"} size="icon" className="rounded-r-none h-9 w-9" onClick={() => setViewMode("grid")}>
                         <LayoutGrid className="h-4 w-4" />
@@ -373,15 +351,15 @@ const ProductDetail = () => {
             </Card>
 
             {/* Objective Tabs */}
-            <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
-              <div className="inline-flex flex-nowrap gap-1">
+            <div className="overflow-x-auto">
+              <div className="inline-flex flex-wrap gap-1">
                 {objectiveCategories.map((obj) => {
                   const count = getObjectiveCount(obj);
                   return (
                     <button
                       key={obj}
                       onClick={() => setObjectiveTab(obj)}
-                      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors whitespace-nowrap ${
+                      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
                         objectiveTab === obj
                           ? "bg-primary text-primary-foreground"
                           : "bg-muted text-muted-foreground hover:bg-muted/80"
@@ -401,7 +379,7 @@ const ProductDetail = () => {
 
             {/* TABLE VIEW */}
             {viewMode === "table" && filteredCreatives.length > 0 && (
-              <Card className="hub-card-shadow overflow-x-auto">
+              <Card className="hub-card-shadow">
                 <CardContent className="p-0">
                   <Table>
                     <TableHeader>
@@ -410,7 +388,7 @@ const ProductDetail = () => {
                         <TableHead>Tipo</TableHead>
                         <TableHead>Objetivo</TableHead>
                         <TableHead>Formatos</TableHead>
-                        {isGestor && <TableHead>Status</TableHead>}
+                        <TableHead>Status</TableHead>
                         <TableHead>Data</TableHead>
                         <TableHead className="text-right">Ações</TableHead>
                       </TableRow>
@@ -433,8 +411,8 @@ const ProductDetail = () => {
                               ))}
                             </div>
                           </TableCell>
-                          {isGestor && (
-                            <TableCell>
+                          <TableCell>
+                            {user?.role === "GESTOR" ? (
                               <button
                                 onClick={() => toggleStatus(creative.id, creative.status)}
                                 className="flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition-opacity"
@@ -448,8 +426,12 @@ const ProductDetail = () => {
                                   {creative.status === "PUBLISHED" ? "Publicado" : "Pendente"}
                                 </Badge>
                               </button>
-                            </TableCell>
-                          )}
+                            ) : (
+                              <Badge variant={creative.status === "PUBLISHED" ? "default" : "secondary"} className="text-xs">
+                                {creative.status === "PUBLISHED" ? "Publicado" : "Pendente"}
+                              </Badge>
+                            )}
+                          </TableCell>
                           <TableCell className="text-sm text-muted-foreground">
                             {new Date(creative.created_at).toLocaleDateString("pt-BR")}
                           </TableCell>
@@ -471,7 +453,7 @@ const ProductDetail = () => {
                   <Card
                     key={creative.id}
                     className="hub-card-shadow hover:shadow-md transition-shadow animate-fade-in overflow-hidden cursor-pointer group"
-                    onClick={() => openPreview(creative)}
+                    onClick={() => { setPreviewCreative(creative); setPreviewOpen(true); }}
                   >
                     <CardContent className="p-0">
                       {/* Thumbnail */}
@@ -495,7 +477,6 @@ const ProductDetail = () => {
                                 src={creative.thumbnail_url}
                                 alt={creative.code}
                                 className="w-full h-full object-cover"
-                                loading="lazy"
                               />
                             )}
                           </>
@@ -518,7 +499,7 @@ const ProductDetail = () => {
                         <p className="text-[11px] text-muted-foreground leading-tight">{creative.objective}</p>
 
                         <div className="flex items-center justify-between">
-                          {isGestor ? (
+                          {user?.role === "GESTOR" ? (
                             <button
                               onClick={(e) => { e.stopPropagation(); toggleStatus(creative.id, creative.status); }}
                               className="cursor-pointer hover:opacity-80 transition-opacity"
@@ -527,7 +508,11 @@ const ProductDetail = () => {
                                 {creative.status === "PUBLISHED" ? "Publicado" : "Pendente"}
                               </Badge>
                             </button>
-                          ) : null}
+                          ) : (
+                            <Badge variant={creative.status === "PUBLISHED" ? "default" : "secondary"} className="text-[10px]">
+                              {creative.status === "PUBLISHED" ? "Publicado" : "Pendente"}
+                            </Badge>
+                          )}
                           <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
                             <Calendar className="h-2.5 w-2.5" />
                             {new Date(creative.created_at).toLocaleDateString("pt-BR")}
@@ -581,7 +566,6 @@ const ProductDetail = () => {
           creativeId={previewCreative.id}
           creativeCode={previewCreative.code}
           creativeType={previewCreative.type}
-          filterFormat={previewFormat}
         />
       )}
 

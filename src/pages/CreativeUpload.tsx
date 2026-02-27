@@ -57,6 +57,7 @@ const CreativeUpload = () => {
     if (!creativeType || !objective || !id) return "";
     const typePrefix = creativeType === "PHOTO" ? "ADF" : creativeType === "VIDEO" ? "ADV" : "ADC";
 
+    // Count existing creatives with same objective+type for this product
     const { count } = await supabase
       .from("creatives")
       .select("id", { count: "exact", head: true })
@@ -138,6 +139,7 @@ const CreativeUpload = () => {
     try {
       const code = generatedCode || await generateCode();
 
+      // 1. Insert creative record
       const { data: creative, error: crErr } = await supabase.from("creatives").insert({
         code,
         type: creativeType,
@@ -149,6 +151,7 @@ const CreativeUpload = () => {
 
       if (crErr || !creative) throw crErr;
 
+      // 2. Upload files and create creative_files records
       const allFiles: { file: File; format: string; position: number }[] = [];
       feedFiles.forEach((f, i) => allFiles.push({ file: f, format: "Feed", position: i }));
       storiesFiles.forEach((f, i) => allFiles.push({ file: f, format: "Stories", position: i }));
@@ -156,7 +159,9 @@ const CreativeUpload = () => {
       for (const { file, format, position } of allFiles) {
         const filePath = `${id}/${creative.id}/${format}/${Date.now()}_${file.name}`;
         const { error: upErr } = await supabase.storage.from("creatives").upload(filePath, file);
-        if (upErr) continue;
+        if (upErr) {
+          continue;
+        }
 
         await supabase.from("creative_files").insert({
           creative_id: creative.id,
@@ -168,6 +173,7 @@ const CreativeUpload = () => {
         });
       }
 
+      // If upload came from a roteiro, link the creative and auto-set is_recorded
       if (roteiroId && creative) {
         await supabase
           .from("roteiros")
@@ -179,8 +185,9 @@ const CreativeUpload = () => {
           .eq("id", roteiroId);
       }
 
-      // Upload files to Google Drive with the creative code as filename
+      // Upload files to Google Drive
       try {
+        // Collect actual uploaded file paths from the creative_files we just inserted
         const { data: uploadedFiles } = await supabase
           .from("creative_files")
           .select("file_path, file_name")
@@ -193,7 +200,6 @@ const CreativeUpload = () => {
               productId: id,
               creativeType,
               objective,
-              creativeCode: code,
               files: uploadedFiles,
             },
           });
@@ -472,36 +478,36 @@ const CreativeUpload = () => {
 
   return (
     <Layout>
-      <div className="p-4 md:p-8 max-w-4xl mx-auto space-y-6 md:space-y-8">
+      <div className="p-8 max-w-4xl mx-auto space-y-8">
         {/* Header */}
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="sm" onClick={() => navigate(`/products/${id}`)} className="gap-2">
             <ArrowLeft className="h-4 w-4" /> Voltar
           </Button>
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-foreground">Enviar Criativo</h1>
+            <h1 className="text-3xl font-bold text-foreground">Enviar Criativo</h1>
             <p className="text-muted-foreground mt-1">{productName || "Carregando..."}</p>
           </div>
         </div>
 
         {/* Progress Steps */}
         <Card className="hub-card-shadow">
-          <CardContent className="p-4 md:p-6">
-            <div className="flex items-center justify-between overflow-x-auto">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
               {steps.map((stepItem, index) => (
-                <div key={index} className="flex items-center shrink-0">
-                  <div className={`flex items-center justify-center w-7 h-7 md:w-8 md:h-8 rounded-full text-xs md:text-sm font-medium ${
+                <div key={index} className="flex items-center">
+                  <div className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium ${
                     step > index + 1 ? "bg-green-500 text-white"
                     : step === index + 1 ? "bg-primary text-primary-foreground"
                     : "bg-muted text-muted-foreground"
                   }`}>
-                    {step > index + 1 ? <Check className="h-3 w-3 md:h-4 md:w-4" /> : index + 1}
+                    {step > index + 1 ? <Check className="h-4 w-4" /> : index + 1}
                   </div>
-                  <span className={`ml-1 md:ml-2 text-xs md:text-sm font-medium hidden sm:inline ${step === index + 1 ? "text-foreground" : "text-muted-foreground"}`}>
+                  <span className={`ml-2 text-sm font-medium ${step === index + 1 ? "text-foreground" : "text-muted-foreground"}`}>
                     {stepItem.title}
                   </span>
                   {index < steps.length - 1 && (
-                    <div className={`w-6 md:w-12 h-px mx-2 md:mx-4 ${step > index + 1 ? "bg-green-500" : "bg-muted"}`} />
+                    <div className={`w-12 h-px mx-4 ${step > index + 1 ? "bg-green-500" : "bg-muted"}`} />
                   )}
                 </div>
               ))}
@@ -511,7 +517,7 @@ const CreativeUpload = () => {
 
         {/* Step Content */}
         <Card className="hub-card-shadow">
-          <CardContent className="p-4 md:p-8">{renderStepContent()}</CardContent>
+          <CardContent className="p-8">{renderStepContent()}</CardContent>
         </Card>
 
         {/* Navigation */}

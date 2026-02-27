@@ -93,14 +93,6 @@ const Clients = () => {
     }
   };
 
-  const getLogoSignedUrl = (logoUrl: string | null | undefined) => {
-    // logo_url from CreateClientDialog stores the storage path, we need a signed URL
-    // But if it's already a full URL (e.g. from public bucket), return as-is
-    if (!logoUrl) return undefined;
-    if (logoUrl.startsWith("http")) return logoUrl;
-    return undefined;
-  };
-
   return (
     <Layout>
       <CreateClientDialog open={createOpen} onOpenChange={setCreateOpen} onCreated={fetchClients} />
@@ -125,13 +117,13 @@ const Clients = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      <div className="p-4 md:p-8 space-y-6 md:space-y-8">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="p-8 space-y-8">
+        <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-foreground">Clientes</h1>
+            <h1 className="text-3xl font-bold text-foreground">Clientes</h1>
             <p className="text-muted-foreground mt-1">Gerencie os clientes da agência</p>
           </div>
-          <Button onClick={() => setCreateOpen(true)} className="hub-shadow gap-2 self-start sm:self-auto">
+          <Button onClick={() => setCreateOpen(true)} className="hub-shadow gap-2">
             <Plus className="h-4 w-4" />
             Novo Cliente
           </Button>
@@ -149,7 +141,7 @@ const Clients = () => {
         </div>
 
         {filteredClients.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredClients.map((client) => (
               <Card
                 key={client.id}
@@ -195,12 +187,19 @@ const Clients = () => {
                   onClick={() => navigate(`/clients/${client.id}`)}
                 >
                   <div className="flex items-start gap-3 pr-6">
-                    <ClientAvatar name={client.name} logoUrl={client.logo_url} />
-                    <div className="min-w-0">
+                    <Avatar className="h-12 w-12 shrink-0">
+                      {client.logo_url ? (
+                        <AvatarImage src={client.logo_url} alt={client.name} className="object-cover" />
+                      ) : null}
+                      <AvatarFallback className="bg-primary/10 text-primary font-semibold">
+                        {client.name.slice(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
                       <h3 className="font-semibold text-foreground">{client.name}</h3>
                       <div className="flex items-center gap-1 mt-1">
                         <Mail className="h-3 w-3 text-muted-foreground" />
-                        <p className="text-sm text-muted-foreground truncate">{client.email}</p>
+                        <p className="text-sm text-muted-foreground">{client.email}</p>
                       </div>
                     </div>
                   </div>
@@ -240,20 +239,6 @@ const Clients = () => {
         )}
       </div>
     </Layout>
-  );
-};
-
-// Client avatar component that handles logo URLs
-const ClientAvatar = ({ name, logoUrl }: { name: string; logoUrl?: string | null }) => {
-  return (
-    <Avatar className="h-12 w-12 shrink-0">
-      {logoUrl ? (
-        <AvatarImage src={logoUrl} alt={name} className="object-cover" />
-      ) : null}
-      <AvatarFallback className="bg-primary/10 text-primary font-semibold">
-        {name.slice(0, 2).toUpperCase()}
-      </AvatarFallback>
-    </Avatar>
   );
 };
 

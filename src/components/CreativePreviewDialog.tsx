@@ -18,10 +18,9 @@ interface CreativePreviewDialogProps {
   creativeId: string;
   creativeCode: string;
   creativeType: string;
-  filterFormat?: string; // "Feed" | "Stories" | undefined (show all)
 }
 
-const CreativePreviewDialog = ({ open, onOpenChange, creativeId, creativeCode, creativeType, filterFormat }: CreativePreviewDialogProps) => {
+const CreativePreviewDialog = ({ open, onOpenChange, creativeId, creativeCode, creativeType }: CreativePreviewDialogProps) => {
   const [files, setFiles] = useState<CreativeFile[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [muted, setMuted] = useState(true);
@@ -34,14 +33,10 @@ const CreativePreviewDialog = ({ open, onOpenChange, creativeId, creativeCode, c
       .eq("creative_id", creativeId)
       .order("position")
       .then(({ data }) => {
-        let filtered = data || [];
-        if (filterFormat) {
-          filtered = filtered.filter(f => f.format === filterFormat);
-        }
-        setFiles(filtered);
+        setFiles(data || []);
         setCurrentIndex(0);
       });
-  }, [open, creativeId, filterFormat]);
+  }, [open, creativeId]);
 
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
 
@@ -63,12 +58,10 @@ const CreativePreviewDialog = ({ open, onOpenChange, creativeId, creativeCode, c
   const isVideo = creativeType === "VIDEO";
   const isCarousel = creativeType === "CAROUSEL";
 
-  const displayTitle = filterFormat ? `${creativeCode} — ${filterFormat}` : creativeCode;
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[85vh] p-0 overflow-hidden">
-        <DialogTitle className="px-4 pt-4 pb-2 text-sm font-semibold font-sans">{displayTitle}</DialogTitle>
+        <DialogTitle className="px-4 pt-4 pb-2 text-sm font-semibold font-sans">{creativeCode}</DialogTitle>
         {currentFile && currentUrl && (
           <div className="relative flex items-center justify-center bg-muted min-h-[300px] max-h-[70vh]">
             {isVideo ? (
