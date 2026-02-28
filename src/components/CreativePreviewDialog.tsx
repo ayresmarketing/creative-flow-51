@@ -18,9 +18,10 @@ interface CreativePreviewDialogProps {
   creativeId: string;
   creativeCode: string;
   creativeType: string;
+  formatFilter?: string; // "Feed" | "Stories" | undefined (show all)
 }
 
-const CreativePreviewDialog = ({ open, onOpenChange, creativeId, creativeCode, creativeType }: CreativePreviewDialogProps) => {
+const CreativePreviewDialog = ({ open, onOpenChange, creativeId, creativeCode, creativeType, formatFilter }: CreativePreviewDialogProps) => {
   const [files, setFiles] = useState<CreativeFile[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [muted, setMuted] = useState(true);
@@ -33,10 +34,14 @@ const CreativePreviewDialog = ({ open, onOpenChange, creativeId, creativeCode, c
       .eq("creative_id", creativeId)
       .order("position")
       .then(({ data }) => {
-        setFiles(data || []);
+        let filtered = data || [];
+        if (formatFilter) {
+          filtered = filtered.filter(f => f.format === formatFilter);
+        }
+        setFiles(filtered);
         setCurrentIndex(0);
       });
-  }, [open, creativeId]);
+  }, [open, creativeId, formatFilter]);
 
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
 
@@ -58,10 +63,12 @@ const CreativePreviewDialog = ({ open, onOpenChange, creativeId, creativeCode, c
   const isVideo = creativeType === "VIDEO";
   const isCarousel = creativeType === "CAROUSEL";
 
+  const titleSuffix = formatFilter ? ` — ${formatFilter}` : "";
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[85vh] p-0 overflow-hidden">
-        <DialogTitle className="px-4 pt-4 pb-2 text-sm font-semibold font-sans">{creativeCode}</DialogTitle>
+        <DialogTitle className="px-4 pt-4 pb-2 text-sm font-semibold font-sans">{creativeCode}{titleSuffix}</DialogTitle>
         {currentFile && currentUrl && (
           <div className="relative flex items-center justify-center bg-muted min-h-[300px] max-h-[70vh]">
             {isVideo ? (

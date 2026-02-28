@@ -200,6 +200,7 @@ const CreativeUpload = () => {
               productId: id,
               creativeType,
               objective,
+              creativeCode: code,
               files: uploadedFiles,
             },
           });
@@ -478,36 +479,36 @@ const CreativeUpload = () => {
 
   return (
     <Layout>
-      <div className="p-8 max-w-4xl mx-auto space-y-8">
+      <div className="p-4 md:p-8 max-w-4xl mx-auto space-y-6 md:space-y-8">
         {/* Header */}
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="sm" onClick={() => navigate(`/products/${id}`)} className="gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+          <Button variant="ghost" size="sm" onClick={() => navigate(`/products/${id}`)} className="gap-2 self-start">
             <ArrowLeft className="h-4 w-4" /> Voltar
           </Button>
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Enviar Criativo</h1>
-            <p className="text-muted-foreground mt-1">{productName || "Carregando..."}</p>
+            <h1 className="text-2xl md:text-3xl font-bold text-foreground">Enviar Criativo</h1>
+            <p className="text-muted-foreground mt-1 text-sm">{productName || "Carregando..."}</p>
           </div>
         </div>
 
         {/* Progress Steps */}
         <Card className="hub-card-shadow">
           <CardContent className="p-6">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between overflow-x-auto">
               {steps.map((stepItem, index) => (
-                <div key={index} className="flex items-center">
-                  <div className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium ${
+                <div key={index} className="flex items-center shrink-0">
+                  <div className={`flex items-center justify-center w-7 h-7 md:w-8 md:h-8 rounded-full text-xs md:text-sm font-medium ${
                     step > index + 1 ? "bg-green-500 text-white"
                     : step === index + 1 ? "bg-primary text-primary-foreground"
                     : "bg-muted text-muted-foreground"
                   }`}>
-                    {step > index + 1 ? <Check className="h-4 w-4" /> : index + 1}
+                    {step > index + 1 ? <Check className="h-3 w-3 md:h-4 md:w-4" /> : index + 1}
                   </div>
-                  <span className={`ml-2 text-sm font-medium ${step === index + 1 ? "text-foreground" : "text-muted-foreground"}`}>
+                  <span className={`ml-1 md:ml-2 text-xs md:text-sm font-medium hidden sm:inline ${step === index + 1 ? "text-foreground" : "text-muted-foreground"}`}>
                     {stepItem.title}
                   </span>
                   {index < steps.length - 1 && (
-                    <div className={`w-12 h-px mx-4 ${step > index + 1 ? "bg-green-500" : "bg-muted"}`} />
+                    <div className={`w-6 md:w-12 h-px mx-2 md:mx-4 ${step > index + 1 ? "bg-green-500" : "bg-muted"}`} />
                   )}
                 </div>
               ))}
@@ -517,7 +518,7 @@ const CreativeUpload = () => {
 
         {/* Step Content */}
         <Card className="hub-card-shadow">
-          <CardContent className="p-8">{renderStepContent()}</CardContent>
+          <CardContent className="p-4 md:p-8">{renderStepContent()}</CardContent>
         </Card>
 
         {/* Navigation */}

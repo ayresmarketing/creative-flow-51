@@ -67,6 +67,20 @@ const RoteiroDialog = ({ open, onOpenChange, productId, productAcronym, roteiro,
         if (error) throw error;
       }
 
+      // Upload roteiro to Google Drive (non-blocking)
+      try {
+        await supabase.functions.invoke("google-drive-operations", {
+          body: {
+            action: "upload_roteiro",
+            productId,
+            title: title.trim(),
+            content: content.trim(),
+          },
+        });
+      } catch (driveErr) {
+        console.warn("Drive roteiro upload failed (non-blocking):", driveErr);
+      }
+
       toast({ title: roteiro && mode === "edit" ? "Roteiro atualizado!" : "Roteiro criado!" });
       onSaved();
     } catch (err: any) {

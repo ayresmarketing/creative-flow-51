@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Dialog,
   DialogContent,
@@ -12,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowLeft, ArrowRight, ShoppingBag, BookOpen, Users, Briefcase } from "lucide-react";
+import { ArrowLeft, ArrowRight, ShoppingBag, BookOpen, Users, Briefcase, CheckCircle2, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -41,6 +42,7 @@ const generateAcronym = (name: string): string => {
 
 const CreateProductDialog = ({ open, onOpenChange, clientId, onCreated }: CreateProductDialogProps) => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [productName, setProductName] = useState("");
   const [acronym, setAcronym] = useState("");
@@ -48,6 +50,8 @@ const CreateProductDialog = ({ open, onOpenChange, clientId, onCreated }: Create
   const [showFormPopup, setShowFormPopup] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formConfirmed, setFormConfirmed] = useState(false);
+  // New states for loading/success flow
+  const [creatingState, setCreatingState] = useState<"idle" | "loading" | "success">("idle");
 
   const reset = () => {
     setStep(1);
@@ -57,6 +61,7 @@ const CreateProductDialog = ({ open, onOpenChange, clientId, onCreated }: Create
     setShowFormPopup(false);
     setSaving(false);
     setFormConfirmed(false);
+    setCreatingState("idle");
   };
 
   const handleClose = (val: boolean) => {
@@ -71,16 +76,19 @@ const CreateProductDialog = ({ open, onOpenChange, clientId, onCreated }: Create
 
   const saveProduct = async () => {
     setSaving(true);
+    setCreatingState("loading");
+
     const { data: product, error } = await supabase.from("products").insert({
       name: productName.trim(),
       acronym: acronym.trim(),
       category,
       client_id: clientId,
     }).select("id").single();
-    setSaving(false);
 
     if (error || !product) {
       toast({ title: "Erro ao criar produto", description: error?.message, variant: "destructive" });
+      setSaving(false);
+      setCreatingState("idle");
       return false;
     }
 
@@ -99,7 +107,8 @@ const CreateProductDialog = ({ open, onOpenChange, clientId, onCreated }: Create
       console.warn("Drive product folder creation failed (non-blocking):", driveErr);
     }
 
-    toast({ title: "Produto criado com sucesso!" });
+    setSaving(false);
+    setCreatingState("success");
     onCreated?.();
     return true;
   };
@@ -112,115 +121,146 @@ const CreateProductDialog = ({ open, onOpenChange, clientId, onCreated }: Create
   };
 
   const handleFinish = async () => {
-    const ok = await saveProduct();
-    if (ok) handleClose(false);
+    await saveProduct();
   };
 
   const handleInfoprodutoFinish = async () => {
     const ok = await saveProduct();
     if (ok) {
       setShowFormPopup(false);
-      handleClose(false);
     }
+  };
+
+  const handleBackToDash = () => {
+    handleClose(false);
   };
 
   return (
     <>
-      <Dialog open={open} onOpenChange={handleClose}>
+      <Dialog open={open} onOpenChange={creatingState === "loading" ? undefined : handleClose}>
         <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>
-              {step === 1 ? "Novo Produto" : "Tipo do Produto"}
-            </DialogTitle>
-            <DialogDescription>
-              {step === 1
-                ? "Dê um nome ao seu produto e defina a sigla."
-                : "Selecione a categoria do produto."}
-            </DialogDescription>
-          </DialogHeader>
-
-          {step === 1 && (
-            <div className="space-y-4 py-2">
-              <div className="space-y-2">
-                <Label htmlFor="product-name">Nome do produto</Label>
-                <Input
-                  id="product-name"
-                  placeholder="Ex: Método Viver de Piercing"
-                  value={productName}
-                  onChange={(e) => handleNameChange(e.target.value)}
-                  autoFocus
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="product-acronym">Sigla do produto</Label>
-                <Input
-                  id="product-acronym"
-                  placeholder="Ex: MVP"
-                  value={acronym}
-                  onChange={(e) => setAcronym(e.target.value.toUpperCase())}
-                  maxLength={4}
-                  className="font-mono uppercase"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Mínimo de 3 caracteres. A sigla será usada na nomenclatura dos criativos. Ex:{" "}
-                  <span className="font-mono font-semibold text-primary">
-                    {acronym || "..."} | ADV001
-                  </span>
-                </p>
-              </div>
+          {creatingState === "loading" ? (
+            <div className="flex flex-col items-center justify-center py-12 space-y-4">
+              <Loader2 className="h-10 w-10 text-primary animate-spin" />
+              <p className="text-foreground font-semibold text-lg text-center">
+                Seu produto está sendo criado
+              </p>
+              <p className="text-muted-foreground text-sm text-center">
+                Aguarde alguns instantes...
+              </p>
             </div>
-          )}
-
-          {step === 2 && (
-            <div className="py-2">
-              <RadioGroup value={category} onValueChange={handleCategorySelect} className="grid grid-cols-1 gap-3">
-                {categoryOptions.map((opt) => {
-                  const Icon = opt.icon;
-                  return (
-                    <label
-                      key={opt.value}
-                      className={`flex items-center gap-4 rounded-lg border p-4 cursor-pointer transition-colors ${
-                        category === opt.value
-                          ? "border-primary bg-primary/5"
-                          : "border-border hover:border-primary/40"
-                      }`}
-                    >
-                      <RadioGroupItem value={opt.value} />
-                      <div className="p-2 rounded-md bg-primary/10">
-                        <Icon className="h-5 w-5 text-primary" />
-                      </div>
-                      <span className="font-medium text-foreground">{opt.label}</span>
-                    </label>
-                  );
-                })}
-              </RadioGroup>
+          ) : creatingState === "success" ? (
+            <div className="flex flex-col items-center justify-center py-12 space-y-4">
+              <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center">
+                <CheckCircle2 className="h-8 w-8 text-green-600" />
+              </div>
+              <p className="text-foreground font-semibold text-lg text-center">
+                Produto criado com sucesso!
+              </p>
+              <p className="text-muted-foreground text-sm text-center">
+                Seu produto já está disponível no dashboard.
+              </p>
+              <Button onClick={handleBackToDash} className="mt-4">
+                Voltar ao Dashboard
+              </Button>
             </div>
-          )}
+          ) : (
+            <>
+              <DialogHeader>
+                <DialogTitle>
+                  {step === 1 ? "Novo Produto" : "Tipo do Produto"}
+                </DialogTitle>
+                <DialogDescription>
+                  {step === 1
+                    ? "Dê um nome ao seu produto e defina a sigla."
+                    : "Selecione a categoria do produto."}
+                </DialogDescription>
+              </DialogHeader>
 
-          <DialogFooter className="flex-row justify-between sm:justify-between gap-2">
-            {step === 2 && (
-              <Button variant="outline" onClick={() => setStep(1)}>
-                <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
-              </Button>
-            )}
-            {step === 1 ? (
-              <Button
-                className="ml-auto"
-                disabled={!productName.trim() || !acronym.trim() || acronym.trim().length < 3}
-                onClick={() => setStep(2)}
-              >
-                Próximo <ArrowRight className="h-4 w-4 ml-1" />
-              </Button>
-            ) : (
-              <Button
-                className="ml-auto"
-                disabled={!category || category === "infoproduto" || saving}
-                onClick={handleFinish}
-              >
-                {saving ? "Criando..." : "Criar Produto"}
-              </Button>
-            )}
-          </DialogFooter>
+              {step === 1 && (
+                <div className="space-y-4 py-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="product-name">Nome do produto</Label>
+                    <Input
+                      id="product-name"
+                      placeholder="Ex: Método Viver de Piercing"
+                      value={productName}
+                      onChange={(e) => handleNameChange(e.target.value)}
+                      autoFocus
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="product-acronym">Sigla do produto</Label>
+                    <Input
+                      id="product-acronym"
+                      placeholder="Ex: MVP"
+                      value={acronym}
+                      onChange={(e) => setAcronym(e.target.value.toUpperCase())}
+                      maxLength={4}
+                      className="font-mono uppercase"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Mínimo de 3 caracteres. A sigla será usada na nomenclatura dos criativos. Ex:{" "}
+                      <span className="font-mono font-semibold text-primary">
+                        {acronym || "..."} | ADV001
+                      </span>
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {step === 2 && (
+                <div className="py-2">
+                  <RadioGroup value={category} onValueChange={handleCategorySelect} className="grid grid-cols-1 gap-3">
+                    {categoryOptions.map((opt) => {
+                      const Icon = opt.icon;
+                      return (
+                        <label
+                          key={opt.value}
+                          className={`flex items-center gap-4 rounded-lg border p-4 cursor-pointer transition-colors ${
+                            category === opt.value
+                              ? "border-primary bg-primary/5"
+                              : "border-border hover:border-primary/40"
+                          }`}
+                        >
+                          <RadioGroupItem value={opt.value} />
+                          <div className="p-2 rounded-md bg-primary/10">
+                            <Icon className="h-5 w-5 text-primary" />
+                          </div>
+                          <span className="font-medium text-foreground">{opt.label}</span>
+                        </label>
+                      );
+                    })}
+                  </RadioGroup>
+                </div>
+              )}
+
+              <DialogFooter className="flex-row justify-between sm:justify-between gap-2">
+                {step === 2 && (
+                  <Button variant="outline" onClick={() => setStep(1)}>
+                    <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
+                  </Button>
+                )}
+                {step === 1 ? (
+                  <Button
+                    className="ml-auto"
+                    disabled={!productName.trim() || !acronym.trim() || acronym.trim().length < 3}
+                    onClick={() => setStep(2)}
+                  >
+                    Próximo <ArrowRight className="h-4 w-4 ml-1" />
+                  </Button>
+                ) : (
+                  <Button
+                    className="ml-auto"
+                    disabled={!category || category === "infoproduto" || saving}
+                    onClick={handleFinish}
+                  >
+                    {saving ? "Criando..." : "Criar Produto"}
+                  </Button>
+                )}
+              </DialogFooter>
+            </>
+          )}
         </DialogContent>
       </Dialog>
 
