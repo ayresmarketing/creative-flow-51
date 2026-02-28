@@ -122,6 +122,11 @@ async function uploadFile(
   return data.id;
 }
 
+function getFileExtension(filePath: string): string {
+  const parts = filePath.split(".");
+  return parts.length > 1 ? "." + parts[parts.length - 1] : "";
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -156,7 +161,6 @@ serve(async (req) => {
 
       case "create_product_folder": {
         const { productName, productId, clientId, productAcronym } = params;
-        // Use acronym if provided, otherwise fall back to product name
         const folderDisplayName = productAcronym || productName;
 
         const { data: clientFolder } = await supabase
@@ -179,6 +183,9 @@ serve(async (req) => {
           }
         }
 
+        // Create Roteiros folder
+        await createFolder(accessToken, "Roteiros", folderId);
+
         await supabase.from("google_drive_folders").insert({
           client_id: clientId,
           product_id: productId,
@@ -191,7 +198,7 @@ serve(async (req) => {
       }
 
       case "upload_creative": {
-        const { productId, creativeType, objective, files } = params;
+        const { productId, creativeType, objective, files, creativeCode } = params;
 
         const { data: productFolder } = await supabase
           .from("google_drive_folders")
@@ -204,22 +211,27 @@ serve(async (req) => {
         // Navigate: Product > Objective > MediaType
         const mediaSubfolder = creativeType === "PHOTO" ? "Fotos" : creativeType === "VIDEO" ? "Vídeos" : "Carrosséis";
 
-        // Find or create the objective folder
         const objFolderId = await findOrCreateFolder(accessToken, productFolder.folder_id, objective);
-        // Find or create the media type folder inside objective
         const targetFolderId = await findOrCreateFolder(accessToken, objFolderId, mediaSubfolder);
 
         const uploadedIds: string[] = [];
-        for (const file of files) {
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i];
           const { data: fileData } = await supabase.storage
             .from("creatives")
             .download(file.file_path);
 
           if (fileData) {
             const buffer = new Uint8Array(await fileData.arrayBuffer());
+            const ext = getFileExtension(file.file_name || file.file_path);
+            // Use creative code as file name
+            const driveFileName = files.length > 1
+              ? `${creativeCode}_${i + 1}${ext}`
+              : `${creativeCode}${ext}`;
+
             const driveFileId = await uploadFile(
               accessToken,
-              file.file_name || file.file_path.split("/").pop(),
+              driveFileName,
               buffer,
               fileData.type || "application/octet-stream",
               targetFolderId
@@ -229,6 +241,37 @@ serve(async (req) => {
         }
 
         result = { uploadedIds };
+        break;
+      }
+
+      case "upload_roteiro": {
+        const { productId, title, content } = params;
+
+        const { data: productFolder } = await supabase
+          .from("google_drive_folders")
+          .select("folder_id")
+          .eq("product_id", productId)
+          .single();
+
+        if (!productFolder) throw new Error("Pasta do produto não encontrada no Drive");
+
+        const roteirosFolderId = await findOrCreateFolder(accessToken, productFolder.folder_id, "Roteiros");
+
+        // Create a text file with the roteiro content
+        const fileContent = `${title}\n${"=".repeat(title.length)}\n\n${content}`;
+        const encoder = new TextEncoder();
+        const fileData = encoder.encode(fileContent);
+        const fileName = `${title.replace(/[/\\?%*:|"<>]/g, "_")}.txt`;
+
+        const driveFileId = await uploadFile(
+          accessToken,
+          fileName,
+          fileData,
+          "text/plain",
+          roteirosFolderId
+        );
+
+        result = { driveFileId };
         break;
       }
 

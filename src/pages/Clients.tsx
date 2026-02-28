@@ -117,13 +117,13 @@ const Clients = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      <div className="p-8 space-y-8">
-        <div className="flex items-center justify-between">
+      <div className="p-4 md:p-8 space-y-6 md:space-y-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Clientes</h1>
-            <p className="text-muted-foreground mt-1">Gerencie os clientes da agência</p>
+            <h1 className="text-2xl md:text-3xl font-bold text-foreground">Clientes</h1>
+            <p className="text-muted-foreground mt-1 text-sm">Gerencie os clientes da agência</p>
           </div>
-          <Button onClick={() => setCreateOpen(true)} className="hub-shadow gap-2">
+          <Button onClick={() => setCreateOpen(true)} className="hub-shadow gap-2 self-start sm:self-auto">
             <Plus className="h-4 w-4" />
             Novo Cliente
           </Button>
@@ -141,7 +141,7 @@ const Clients = () => {
         </div>
 
         {filteredClients.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
             {filteredClients.map((client) => (
               <Card
                 key={client.id}

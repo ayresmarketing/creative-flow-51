@@ -68,6 +68,7 @@ const ProductDetail = () => {
   // Preview dialog
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewCreative, setPreviewCreative] = useState<Creative | null>(null);
+  const [previewFormatFilter, setPreviewFormatFilter] = useState<string | undefined>(undefined);
 
   // Delete dialog
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -121,7 +122,6 @@ const ProductDetail = () => {
 
   const handleDelete = async () => {
     if (!deleteCreativeId) return;
-    // Delete files from storage first
     const { data: files } = await supabase
       .from("creative_files")
       .select("file_path")
@@ -131,9 +131,7 @@ const ProductDetail = () => {
       await supabase.storage.from("creatives").remove(files.map(f => f.file_path));
     }
 
-    // Delete creative_files records
     await supabase.from("creative_files").delete().eq("creative_id", deleteCreativeId);
-    // Delete creative
     const { error } = await supabase.from("creatives").delete().eq("id", deleteCreativeId);
     if (error) {
       toast({ title: "Erro ao excluir criativo", variant: "destructive" });
@@ -172,10 +170,15 @@ const ProductDetail = () => {
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
       } catch {
-        // Fallback: open in new tab
         window.open(data.signedUrl, "_blank");
       }
     }
+  };
+
+  const openPreviewWithFormat = (creative: Creative, format?: string) => {
+    setPreviewCreative(creative);
+    setPreviewFormatFilter(format);
+    setPreviewOpen(true);
   };
 
   const getObjectiveCount = (obj: string) => {
@@ -219,6 +222,9 @@ const ProductDetail = () => {
     }
   };
 
+  const hasBothFormats = (creative: Creative) =>
+    creative.formats.includes("Feed") && creative.formats.includes("Stories");
+
   const CreativeDropdownMenu = ({ creative }: { creative: Creative }) => (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -227,22 +233,35 @@ const ProductDetail = () => {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => { setPreviewCreative(creative); setPreviewOpen(true); }}>
-          <Eye className="h-4 w-4 mr-2" /> Pré-visualizar
-        </DropdownMenuItem>
+        {hasBothFormats(creative) ? (
+          <>
+            <DropdownMenuItem onClick={() => openPreviewWithFormat(creative, "Feed")}>
+              <Eye className="h-4 w-4 mr-2" /> Visualizar Feed
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => openPreviewWithFormat(creative, "Stories")}>
+              <Eye className="h-4 w-4 mr-2" /> Visualizar Stories
+            </DropdownMenuItem>
+          </>
+        ) : (
+          <DropdownMenuItem onClick={() => openPreviewWithFormat(creative)}>
+            <Eye className="h-4 w-4 mr-2" /> Pré-visualizar
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem onClick={() => handleDownload(creative)}>
           <Download className="h-4 w-4 mr-2" /> Baixar
         </DropdownMenuItem>
-        <DropdownMenuItem
-          className="text-destructive focus:text-destructive"
-          onClick={() => { setDeleteCreativeId(creative.id); setDeleteOpen(true); }}
-        >
-          <Trash2 className="h-4 w-4 mr-2" /> Excluir
-        </DropdownMenuItem>
         {user?.role === "GESTOR" && (
-          <DropdownMenuItem onClick={() => toggleStatus(creative.id, creative.status)}>
-            {creative.status === "PUBLISHED" ? "Marcar como Pendente" : "Marcar como Publicado"}
-          </DropdownMenuItem>
+          <>
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              onClick={() => { setDeleteCreativeId(creative.id); setDeleteOpen(true); }}
+            >
+              <Trash2 className="h-4 w-4 mr-2" /> Excluir
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => toggleStatus(creative.id, creative.status)}>
+              {creative.status === "PUBLISHED" ? "Marcar como Pendente" : "Marcar como Publicado"}
+            </DropdownMenuItem>
+          </>
         )}
       </DropdownMenuContent>
     </DropdownMenu>
@@ -258,22 +277,22 @@ const ProductDetail = () => {
 
   return (
     <Layout>
-      <div className="p-8 space-y-6">
+      <div className="p-4 md:p-8 space-y-6">
         {/* Header */}
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+          <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="gap-2 self-start">
             <ArrowLeft className="h-4 w-4" /> Voltar
           </Button>
           <div className="flex-1">
-            <div className="flex items-center gap-3">
-              <h1 className="text-3xl font-bold text-foreground">{product.name}</h1>
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="text-2xl md:text-3xl font-bold text-foreground">{product.name}</h1>
               <Badge variant="outline" className="font-mono text-base px-3 py-1">{product.acronym}</Badge>
             </div>
-            <p className="text-muted-foreground mt-1">
+            <p className="text-muted-foreground mt-1 text-sm">
               {product.category} • Criado em {new Date(product.created_at).toLocaleDateString("pt-BR")}
             </p>
           </div>
-          <Button onClick={() => navigate(`/products/${id}/upload`)} className="hub-shadow gap-2">
+          <Button onClick={() => navigate(`/products/${id}/upload`)} className="hub-shadow gap-2 self-start sm:self-auto">
             <Plus className="h-4 w-4" /> Enviar Criativo
           </Button>
         </div>
@@ -319,7 +338,7 @@ const ProductDetail = () => {
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input placeholder="Buscar criativos..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" />
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap">
                     <Select value={typeFilter} onValueChange={setTypeFilter}>
                       <SelectTrigger className="w-28"><SelectValue placeholder="Tipo" /></SelectTrigger>
                       <SelectContent>
@@ -329,14 +348,16 @@ const ProductDetail = () => {
                         <SelectItem value="carousel">Carrosséis</SelectItem>
                       </SelectContent>
                     </Select>
-                    <Select value={statusFilter} onValueChange={setStatusFilter}>
-                      <SelectTrigger className="w-28"><SelectValue placeholder="Status" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Todos</SelectItem>
-                        <SelectItem value="published">Publicados</SelectItem>
-                        <SelectItem value="pending">Pendentes</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    {user?.role === "GESTOR" && (
+                      <Select value={statusFilter} onValueChange={setStatusFilter}>
+                        <SelectTrigger className="w-28"><SelectValue placeholder="Status" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todos</SelectItem>
+                          <SelectItem value="published">Publicados</SelectItem>
+                          <SelectItem value="pending">Pendentes</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
                     <div className="flex border rounded-md">
                       <Button variant={viewMode === "grid" ? "default" : "ghost"} size="icon" className="rounded-r-none h-9 w-9" onClick={() => setViewMode("grid")}>
                         <LayoutGrid className="h-4 w-4" />
@@ -379,7 +400,7 @@ const ProductDetail = () => {
 
             {/* TABLE VIEW */}
             {viewMode === "table" && filteredCreatives.length > 0 && (
-              <Card className="hub-card-shadow">
+              <Card className="hub-card-shadow overflow-x-auto">
                 <CardContent className="p-0">
                   <Table>
                     <TableHeader>
@@ -453,7 +474,7 @@ const ProductDetail = () => {
                   <Card
                     key={creative.id}
                     className="hub-card-shadow hover:shadow-md transition-shadow animate-fade-in overflow-hidden cursor-pointer group"
-                    onClick={() => { setPreviewCreative(creative); setPreviewOpen(true); }}
+                    onClick={() => openPreviewWithFormat(creative)}
                   >
                     <CardContent className="p-0">
                       {/* Thumbnail */}
@@ -566,6 +587,7 @@ const ProductDetail = () => {
           creativeId={previewCreative.id}
           creativeCode={previewCreative.code}
           creativeType={previewCreative.type}
+          formatFilter={previewFormatFilter}
         />
       )}
 
