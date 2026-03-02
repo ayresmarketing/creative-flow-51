@@ -263,6 +263,38 @@ export type Database = {
         }
         Relationships: []
       }
+      product_briefings: {
+        Row: {
+          created_at: string
+          id: string
+          product_id: string
+          responses: Json
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          product_id: string
+          responses?: Json
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          product_id?: string
+          responses?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_briefings_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: true
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_notes: {
         Row: {
           content: string

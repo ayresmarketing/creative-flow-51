@@ -29,6 +29,8 @@ import { useToast } from "@/hooks/use-toast";
 import CreativePreviewDialog from "@/components/CreativePreviewDialog";
 import RoteiroList from "@/components/RoteiroList";
 import ProductNotes from "@/components/ProductNotes";
+import BriefingDisplay from "@/components/BriefingDisplay";
+import { type BriefingResponses } from "@/components/BriefingForm";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface Creative {
@@ -65,6 +67,7 @@ const ProductDetail = () => {
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
   const [objectiveTab, setObjectiveTab] = useState("Todos");
   const [activeTab, setActiveTab] = useState("criativos");
+  const [briefingData, setBriefingData] = useState<BriefingResponses | null>(null);
 
   // Preview dialog
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -79,11 +82,13 @@ const ProductDetail = () => {
 
   const fetchData = useCallback(async () => {
     if (!id) return;
-    const [prodRes, creatRes] = await Promise.all([
+    const [prodRes, creatRes, briefRes] = await Promise.all([
       supabase.from("products").select("*").eq("id", id).single(),
       supabase.from("creatives").select("*").eq("product_id", id).order("created_at", { ascending: false }),
+      (supabase.from("product_briefings") as any).select("responses").eq("product_id", id).maybeSingle(),
     ]);
     setProduct(prodRes.data);
+    setBriefingData(briefRes.data?.responses as BriefingResponses ?? null);
 
     // Fetch thumbnails for each creative
     const creativesData = creatRes.data || [];
@@ -629,18 +634,7 @@ const ProductDetail = () => {
           </TabsContent>
 
           <TabsContent value="briefing" className="mt-4">
-            <Card className="hub-card-shadow">
-              <CardContent className="p-6">
-                <div className="text-center py-8">
-                  <p className="text-muted-foreground text-sm">
-                    O briefing preenchido no formulário de criação do produto será exibido aqui.
-                  </p>
-                  <p className="text-muted-foreground text-xs mt-2">
-                    Funcionalidade em desenvolvimento — os dados do Google Forms serão integrados em breve.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+            <BriefingDisplay responses={briefingData} />
           </TabsContent>
 
           {user?.role === "GESTOR" && (

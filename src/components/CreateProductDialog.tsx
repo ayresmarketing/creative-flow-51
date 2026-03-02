@@ -12,10 +12,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Checkbox } from "@/components/ui/checkbox";
 import { ArrowLeft, ArrowRight, ShoppingBag, BookOpen, Users, Briefcase, CheckCircle2, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import BriefingForm, { type BriefingResponses } from "./BriefingForm";
 
 interface CreateProductDialogProps {
   open: boolean;
@@ -57,9 +57,8 @@ const CreateProductDialog = ({ open, onOpenChange, clientId, onCreated }: Create
   const [productName, setProductName] = useState("");
   const [acronym, setAcronym] = useState("");
   const [category, setCategory] = useState("");
-  const [showFormPopup, setShowFormPopup] = useState(false);
+  const [showBriefingForm, setShowBriefingForm] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [formConfirmed, setFormConfirmed] = useState(false);
   // New states for loading/success flow
   const [creatingState, setCreatingState] = useState<"idle" | "loading" | "success">("idle");
 
@@ -68,9 +67,8 @@ const CreateProductDialog = ({ open, onOpenChange, clientId, onCreated }: Create
     setProductName("");
     setAcronym("");
     setCategory("");
-    setShowFormPopup(false);
+    setShowBriefingForm(false);
     setSaving(false);
-    setFormConfirmed(false);
     setCreatingState("idle");
   };
 
@@ -84,7 +82,7 @@ const CreateProductDialog = ({ open, onOpenChange, clientId, onCreated }: Create
     setAcronym(generateAcronym(value));
   };
 
-  const saveProduct = async () => {
+  const saveProduct = async (briefingData?: BriefingResponses) => {
     setSaving(true);
     setCreatingState("loading");
 
@@ -100,6 +98,14 @@ const CreateProductDialog = ({ open, onOpenChange, clientId, onCreated }: Create
       setSaving(false);
       setCreatingState("idle");
       return false;
+    }
+
+    // Save briefing if provided
+    if (briefingData) {
+      await (supabase.from("product_briefings") as any).insert({
+        product_id: product.id,
+        responses: briefingData as unknown as Record<string, unknown>,
+      });
     }
 
     // Create Google Drive folder for the product
@@ -126,7 +132,7 @@ const CreateProductDialog = ({ open, onOpenChange, clientId, onCreated }: Create
   const handleCategorySelect = (value: string) => {
     setCategory(value);
     if (value === "infoproduto") {
-      setShowFormPopup(true);
+      setShowBriefingForm(true);
     }
   };
 
@@ -134,11 +140,9 @@ const CreateProductDialog = ({ open, onOpenChange, clientId, onCreated }: Create
     await saveProduct();
   };
 
-  const handleInfoprodutoFinish = async () => {
-    const ok = await saveProduct();
-    if (ok) {
-      setShowFormPopup(false);
-    }
+  const handleBriefingSubmit = async (responses: BriefingResponses) => {
+    await saveProduct(responses);
+    setShowBriefingForm(false);
   };
 
   const handleBackToDash = () => {
@@ -274,42 +278,16 @@ const CreateProductDialog = ({ open, onOpenChange, clientId, onCreated }: Create
         </DialogContent>
       </Dialog>
 
-      {/* Google Forms popup for Infoproduto */}
-      <Dialog open={showFormPopup} onOpenChange={setShowFormPopup}>
-        <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-hidden p-0">
-          <DialogHeader className="p-6 pb-0">
-            <DialogTitle>Formulário — Infoproduto</DialogTitle>
-            <DialogDescription>Preencha o formulário abaixo para continuar.</DialogDescription>
+      {/* Briefing form for Infoproduto */}
+      <Dialog open={showBriefingForm} onOpenChange={setShowBriefingForm}>
+        <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-hidden">
+          <DialogHeader>
+            <DialogTitle>Briefing — Infoproduto</DialogTitle>
+            <DialogDescription>
+              Preencha todos os campos abaixo. Essas informações são essenciais para a criação dos seus criativos.
+            </DialogDescription>
           </DialogHeader>
-          <div className="overflow-y-auto px-6 pb-6" style={{ maxHeight: "calc(90vh - 200px)" }}>
-            <iframe
-              src="https://docs.google.com/forms/d/e/1FAIpQLSdVJ3kfqGTtjrophYEhBDClWCQN9M4VEcnQML-66RZ8bTVf9w/viewform?embedded=true"
-              width="100%"
-              height="4940"
-              frameBorder="0"
-              marginHeight={0}
-              marginWidth={0}
-              title="Formulário Infoproduto"
-            >
-              Carregando…
-            </iframe>
-          </div>
-          <div className="p-4 border-t border-border space-y-3">
-            <label className="flex items-center gap-3 cursor-pointer select-none">
-              <Checkbox
-                checked={formConfirmed}
-                onCheckedChange={(v) => setFormConfirmed(!!v)}
-              />
-              <span className="text-sm text-foreground">
-                Confirmei o envio do formulário (apareceu a tela de confirmação)
-              </span>
-            </label>
-            <div className="flex justify-end">
-              <Button onClick={handleInfoprodutoFinish} disabled={!formConfirmed || saving}>
-                {saving ? "Criando..." : "Concluir e Criar Produto"}
-              </Button>
-            </div>
-          </div>
+          <BriefingForm onSubmit={handleBriefingSubmit} saving={saving} />
         </DialogContent>
       </Dialog>
     </>
