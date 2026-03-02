@@ -32,12 +32,22 @@ const categoryOptions = [
 ];
 
 const generateAcronym = (name: string): string => {
-  return name
-    .split(/\s+/)
-    .filter((w) => w.length > 0)
-    .map((w) => w[0].toUpperCase())
-    .join("")
-    .slice(0, 4);
+  const words = name.split(/\s+/).filter((w) => w.length > 0);
+  if (words.length === 0) return "";
+  if (words.length >= 3) {
+    // 3+ words: take first letter of first 3 or 4 words
+    return words.slice(0, 4).map((w) => w[0].toUpperCase()).join("");
+  }
+  if (words.length === 2) {
+    // 2 words: first letter of each + extra letter from last word
+    const a = words[0][0].toUpperCase();
+    const b = words[1][0].toUpperCase();
+    const c = words[1].length > 1 ? words[1][1].toUpperCase() : words[0].length > 1 ? words[0][1].toUpperCase() : "X";
+    return a + b + c;
+  }
+  // 1 word: take first 3 chars
+  const w = words[0].toUpperCase();
+  return w.length >= 3 ? w.slice(0, 3) : w.padEnd(3, w[w.length - 1]);
 };
 
 const CreateProductDialog = ({ open, onOpenChange, clientId, onCreated }: CreateProductDialogProps) => {

@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import {
   Plus, Search, Image, Video, Layers, MoreVertical, Calendar,
   Play, ArrowLeft, Table as TableIcon, LayoutGrid, CheckCircle2, Circle,
-  Eye, Trash2, Download
+  Eye, Trash2, Download, BarChart3, Clock
 } from "lucide-react";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -28,6 +28,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import CreativePreviewDialog from "@/components/CreativePreviewDialog";
 import RoteiroList from "@/components/RoteiroList";
+import ProductNotes from "@/components/ProductNotes";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface Creative {
@@ -324,12 +325,62 @@ const ProductDetail = () => {
           );
         })()}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList>
+          <TabsList className="flex-wrap">
             <TabsTrigger value="criativos">Criativos</TabsTrigger>
             <TabsTrigger value="roteiros">Roteiros</TabsTrigger>
+            <TabsTrigger value="briefing">Briefing</TabsTrigger>
+            {user?.role === "GESTOR" && <TabsTrigger value="notas">Notas</TabsTrigger>}
           </TabsList>
 
           <TabsContent value="criativos" className="space-y-6 mt-4">
+            {/* Creative Stats Dashboard */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <Card className="hub-card-shadow">
+                <CardContent className="p-4 flex items-center gap-3">
+                  <div className="p-2 bg-primary/10 rounded-lg">
+                    <BarChart3 className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-xl font-bold text-foreground">{creatives.length}</p>
+                    <p className="text-xs text-muted-foreground">Total</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="hub-card-shadow">
+                <CardContent className="p-4 flex items-center gap-3">
+                  <div className="p-2 bg-green-100 rounded-lg">
+                    <CheckCircle2 className="h-5 w-5 text-green-600" />
+                  </div>
+                  <div>
+                    <p className="text-xl font-bold text-foreground">{creatives.filter(c => c.status === "PUBLISHED").length}</p>
+                    <p className="text-xs text-muted-foreground">Publicados</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="hub-card-shadow">
+                <CardContent className="p-4 flex items-center gap-3">
+                  <div className="p-2 bg-amber-100 rounded-lg">
+                    <Clock className="h-5 w-5 text-amber-600" />
+                  </div>
+                  <div>
+                    <p className="text-xl font-bold text-foreground">{creatives.filter(c => c.status === "PENDING").length}</p>
+                    <p className="text-xs text-muted-foreground">Pendentes</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="hub-card-shadow">
+                <CardContent className="p-4 flex items-center gap-3">
+                  <div className="p-2 bg-primary/10 rounded-lg">
+                    <Layers className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-xl font-bold text-foreground">{new Set(creatives.map(c => c.objective)).size}</p>
+                    <p className="text-xs text-muted-foreground">Objetivos</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
             {/* Filters */}
             <Card className="hub-card-shadow">
               <CardContent className="p-4">
@@ -576,6 +627,27 @@ const ProductDetail = () => {
           <TabsContent value="roteiros" className="mt-4">
             {product && <RoteiroList productId={product.id} productAcronym={product.acronym} />}
           </TabsContent>
+
+          <TabsContent value="briefing" className="mt-4">
+            <Card className="hub-card-shadow">
+              <CardContent className="p-6">
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground text-sm">
+                    O briefing preenchido no formulário de criação do produto será exibido aqui.
+                  </p>
+                  <p className="text-muted-foreground text-xs mt-2">
+                    Funcionalidade em desenvolvimento — os dados do Google Forms serão integrados em breve.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {user?.role === "GESTOR" && (
+            <TabsContent value="notas" className="mt-4">
+              {product && <ProductNotes productId={product.id} />}
+            </TabsContent>
+          )}
         </Tabs>
       </div>
 
