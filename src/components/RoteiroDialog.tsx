@@ -9,12 +9,13 @@ import { Badge } from "@/components/ui/badge";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
-import { Calendar, Video, Send } from "lucide-react";
+import { Calendar, Video, Send, Link2 } from "lucide-react";
 
 interface Roteiro {
   id: string;
   title: string;
   content: string;
+  reference_links: string[];
   is_recorded: boolean;
   video_creative_id: string | null;
   video_sent_at: string | null;
@@ -33,16 +34,24 @@ interface RoteiroDialogProps {
   onSendCreative?: (roteiroId: string) => void;
 }
 
-const RoteiroDialog = ({ open, onOpenChange, productId, productAcronym, roteiro, mode, onSaved, onSendCreative }: RoteiroDialogProps) => {
+const sanitizeReferenceLinks = (rawText: string): string[] =>
+  rawText
+    .split("\n")
+    .map((item) => item.trim())
+    .filter((item, index, arr) => item.length > 0 && arr.indexOf(item) === index);
+
+const RoteiroDialog = ({ open, onOpenChange, productId, roteiro, mode, onSaved, onSendCreative }: RoteiroDialogProps) => {
   const { toast } = useToast();
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+  const [referencesText, setReferencesText] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (open) {
       setTitle(roteiro?.title || "");
       setContent(roteiro?.content || "");
+      setReferencesText((roteiro?.reference_links || []).join("\n"));
     }
   }, [open, roteiro]);
 
@@ -51,23 +60,29 @@ const RoteiroDialog = ({ open, onOpenChange, productId, productAcronym, roteiro,
       toast({ title: "Título é obrigatório", variant: "destructive" });
       return;
     }
+
+    const referenceLinks = sanitizeReferenceLinks(referencesText);
     setSaving(true);
 
     try {
       if (roteiro && mode === "edit") {
         const { error } = await supabase
           .from("roteiros")
-          .update({ title: title.trim(), content: content.trim() })
+          .update({ title: title.trim(), content: content.trim(), reference_links: referenceLinks } as any)
           .eq("id", roteiro.id);
         if (error) throw error;
       } else {
         const { error } = await supabase
           .from("roteiros")
-          .insert({ product_id: productId, title: title.trim(), content: content.trim() });
+          .insert({
+            product_id: productId,
+            title: title.trim(),
+            content: content.trim(),
+            reference_links: referenceLinks,
+          } as any);
         if (error) throw error;
       }
 
-      // Upload roteiro to Google Drive (non-blocking)
       try {
         await supabase.functions.invoke("google-drive-operations", {
           body: {
@@ -75,6 +90,7 @@ const RoteiroDialog = ({ open, onOpenChange, productId, productAcronym, roteiro,
             productId,
             title: title.trim(),
             content: content.trim(),
+            referenceLinks,
           },
         });
       } catch (driveErr) {
@@ -90,7 +106,6 @@ const RoteiroDialog = ({ open, onOpenChange, productId, productAcronym, roteiro,
     }
   };
 
-  // View mode
   if (mode === "view" && roteiro) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -99,7 +114,7 @@ const RoteiroDialog = ({ open, onOpenChange, productId, productAcronym, roteiro,
             <div className="flex items-center gap-2 flex-wrap">
               <DialogTitle className="text-xl">{roteiro.title}</DialogTitle>
               {roteiro.is_recorded && (
-                <Badge variant="default" className="text-xs bg-green-600 hover:bg-green-700">Gravado</Badge>
+                <Badge variant="default" className="text-xs">Gravado</Badge>
               )}
               {roteiro.video_sent_at && (
                 <Badge variant="outline" className="text-xs gap-1">
@@ -128,6 +143,27 @@ const RoteiroDialog = ({ open, onOpenChange, productId, productAcronym, roteiro,
                 {roteiro.content || "Sem conteúdo."}
               </p>
             </div>
+
+            {roteiro.reference_links?.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Referências
+                </p>
+                <div className="space-y-2">
+                  {roteiro.reference_links.map((link, index) => (
+                    <a
+                      key={`${link}-${index}`}
+                      href={link}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-sm inline-flex items-center gap-2 text-primary hover:underline break-all"
+                    >
+                      <Link2 className="h-4 w-4" /> {link}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           <DialogFooter className="gap-2">
@@ -143,7 +179,6 @@ const RoteiroDialog = ({ open, onOpenChange, productId, productAcronym, roteiro,
     );
   }
 
-  // Create / Edit mode
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -172,6 +207,21 @@ const RoteiroDialog = ({ open, onOpenChange, productId, productAcronym, roteiro,
               rows={10}
               className="resize-y"
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="roteiro-references">Links de referência (opcional)</Label>
+            <Textarea
+              id="roteiro-references"
+              placeholder="Cole um link por linha para usar como referência"
+              value={referencesText}
+              onChange={(e) => setReferencesText(e.target.value)}
+              rows={4}
+              className="resize-y"
+            />
+            <p className="text-xs text-muted-foreground">
+              Você pode adicionar 1 ou várias referências, uma por linha.
+            </p>
           </div>
         </div>
 
