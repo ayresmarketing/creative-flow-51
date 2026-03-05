@@ -23,6 +23,7 @@ interface Roteiro {
   id: string;
   title: string;
   content: string;
+  reference_links: string[];
   is_recorded: boolean;
   video_creative_id: string | null;
   video_sent_at: string | null;
