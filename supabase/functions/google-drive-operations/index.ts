@@ -250,7 +250,7 @@ serve(async (req) => {
       }
 
       case "upload_roteiro": {
-        const { productId, title, content } = params;
+        const { productId, title, content, referenceLinks } = params;
 
         const { data: productFolder } = await supabase
           .from("google_drive_folders")
@@ -262,11 +262,18 @@ serve(async (req) => {
 
         const roteirosFolderId = await findOrCreateFolder(accessToken, productFolder.folder_id, "Roteiros");
 
-        // Create a text file with the roteiro content
-        const fileContent = `${title}\n${"=".repeat(title.length)}\n\n${content}`;
+        const links = Array.isArray(referenceLinks)
+          ? referenceLinks.filter((link) => typeof link === "string" && link.trim().length > 0)
+          : [];
+
+        const referencesSection = links.length > 0
+          ? `\n\nReferências\n${"-".repeat(11)}\n${links.map((link: string) => `- ${link}`).join("\n")}`
+          : "";
+
+        const fileContent = `${title}\n${"=".repeat(title.length)}\n\n${content}${referencesSection}`;
         const encoder = new TextEncoder();
         const fileData = encoder.encode(fileContent);
-        const fileName = `${title.replace(/[/\\?%*:|"<>]/g, "_")}.txt`;
+        const fileName = `${sanitizeFileName(title)}.txt`;
 
         const driveFileId = await uploadFile(
           accessToken,
@@ -274,6 +281,35 @@ serve(async (req) => {
           fileData,
           "text/plain",
           roteirosFolderId
+        );
+
+        result = { driveFileId };
+        break;
+      }
+
+      case "upload_briefing": {
+        const { productId, productName, categoryLabel, briefingText } = params;
+
+        const { data: productFolder } = await supabase
+          .from("google_drive_folders")
+          .select("folder_id")
+          .eq("product_id", productId)
+          .single();
+
+        if (!productFolder) throw new Error("Pasta do produto não encontrada no Drive");
+
+        const briefingFolderId = await findOrCreateFolder(accessToken, productFolder.folder_id, "Briefing");
+
+        const fileData = new TextEncoder().encode(String(briefingText || ""));
+        const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+        const fileName = `Briefing - ${sanitizeFileName(String(categoryLabel || productName || "Produto"))} - ${timestamp}.txt`;
+
+        const driveFileId = await uploadFile(
+          accessToken,
+          fileName,
+          fileData,
+          "text/plain",
+          briefingFolderId,
         );
 
         result = { driveFileId };
