@@ -295,6 +295,54 @@ export type Database = {
           },
         ]
       }
+      product_content_access: {
+        Row: {
+          access_sent: boolean
+          content_id: string
+          created_at: string
+          id: string
+          product_id: string
+          sent_at: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          access_sent?: boolean
+          content_id: string
+          created_at?: string
+          id?: string
+          product_id: string
+          sent_at?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          access_sent?: boolean
+          content_id?: string
+          created_at?: string
+          id?: string
+          product_id?: string
+          sent_at?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_content_access_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "contents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_content_access_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_notes: {
         Row: {
           content: string
@@ -396,6 +444,7 @@ export type Database = {
           id: string
           is_recorded: boolean
           product_id: string
+          reference_links: string[]
           title: string
           updated_at: string
           video_creative_id: string | null
@@ -407,6 +456,7 @@ export type Database = {
           id?: string
           is_recorded?: boolean
           product_id: string
+          reference_links?: string[]
           title: string
           updated_at?: string
           video_creative_id?: string | null
@@ -418,6 +468,7 @@ export type Database = {
           id?: string
           is_recorded?: boolean
           product_id?: string
+          reference_links?: string[]
           title?: string
           updated_at?: string
           video_creative_id?: string | null

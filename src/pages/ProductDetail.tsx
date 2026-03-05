@@ -30,7 +30,7 @@ import CreativePreviewDialog from "@/components/CreativePreviewDialog";
 import RoteiroList from "@/components/RoteiroList";
 import ProductNotes from "@/components/ProductNotes";
 import BriefingDisplay from "@/components/BriefingDisplay";
-import { type BriefingResponses } from "@/components/BriefingForm";
+import ProductContentsTab from "@/components/ProductContentsTab";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface Creative {
@@ -67,7 +67,7 @@ const ProductDetail = () => {
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
   const [objectiveTab, setObjectiveTab] = useState("Todos");
   const [activeTab, setActiveTab] = useState("criativos");
-  const [briefingData, setBriefingData] = useState<BriefingResponses | null>(null);
+  const [briefingData, setBriefingData] = useState<unknown>(null);
 
   // Preview dialog
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -85,10 +85,15 @@ const ProductDetail = () => {
     const [prodRes, creatRes, briefRes] = await Promise.all([
       supabase.from("products").select("*").eq("id", id).single(),
       supabase.from("creatives").select("*").eq("product_id", id).order("created_at", { ascending: false }),
-      (supabase.from("product_briefings") as any).select("responses").eq("product_id", id).maybeSingle(),
+      (supabase.from("product_briefings") as any)
+        .select("responses, updated_at")
+        .eq("product_id", id)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
     ]);
     setProduct(prodRes.data);
-    setBriefingData(briefRes.data?.responses as BriefingResponses ?? null);
+    setBriefingData(briefRes.data?.responses ?? null);
 
     // Fetch thumbnails for each creative
     const creativesData = creatRes.data || [];
@@ -334,6 +339,7 @@ const ProductDetail = () => {
             <TabsTrigger value="criativos">Criativos</TabsTrigger>
             <TabsTrigger value="roteiros">Roteiros</TabsTrigger>
             <TabsTrigger value="briefing">Briefing</TabsTrigger>
+            <TabsTrigger value="conteudos">Conteúdos</TabsTrigger>
             {user?.role === "GESTOR" && <TabsTrigger value="notas">Notas</TabsTrigger>}
           </TabsList>
 
@@ -634,7 +640,11 @@ const ProductDetail = () => {
           </TabsContent>
 
           <TabsContent value="briefing" className="mt-4">
-            <BriefingDisplay responses={briefingData} />
+            <BriefingDisplay responses={briefingData} category={product.category} />
+          </TabsContent>
+
+          <TabsContent value="conteudos" className="mt-4">
+            {product && <ProductContentsTab productId={product.id} />}
           </TabsContent>
 
           {user?.role === "GESTOR" && (

@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import {
-  Plus, FileText, Calendar, Video, MoreVertical, Pencil, Trash2, Upload, Send,
+  Plus, FileText, Calendar, Video, MoreVertical, Pencil, Trash2, Upload, Send, Link2,
 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
@@ -23,6 +23,7 @@ interface Roteiro {
   id: string;
   title: string;
   content: string;
+  reference_links: string[];
   is_recorded: boolean;
   video_creative_id: string | null;
   video_sent_at: string | null;
@@ -60,7 +61,7 @@ const RoteiroList = ({ productId, productAcronym }: RoteiroListProps) => {
       .select("*")
       .eq("product_id", productId)
       .order("created_at", { ascending: false });
-    setRoteiros(data || []);
+    setRoteiros(((data ?? []) as unknown) as Roteiro[]);
     setLoading(false);
   }, [productId]);
 
@@ -193,6 +194,13 @@ const RoteiroList = ({ productId, productAcronym }: RoteiroListProps) => {
                     <p className="text-sm text-muted-foreground">
                       {getFirstSentence(roteiro.content)}
                     </p>
+
+                    {roteiro.reference_links?.length > 0 && (
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <Link2 className="h-3 w-3" />
+                        {roteiro.reference_links.length} referência{roteiro.reference_links.length > 1 ? "s" : ""}
+                      </div>
+                    )}
 
                     <div className="flex items-center gap-4 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1">
