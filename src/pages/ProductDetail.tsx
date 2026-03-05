@@ -640,7 +640,11 @@ const ProductDetail = () => {
           </TabsContent>
 
           <TabsContent value="briefing" className="mt-4">
-            <BriefingDisplay responses={briefingData} />
+            <BriefingDisplay responses={briefingData} category={product.category} />
+          </TabsContent>
+
+          <TabsContent value="conteudos" className="mt-4">
+            {product && <ProductContentsTab productId={product.id} />}
           </TabsContent>
 
           {user?.role === "GESTOR" && (
