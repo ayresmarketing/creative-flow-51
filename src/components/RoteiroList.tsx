@@ -61,7 +61,7 @@ const RoteiroList = ({ productId, productAcronym }: RoteiroListProps) => {
       .select("*")
       .eq("product_id", productId)
       .order("created_at", { ascending: false });
-    setRoteiros(data || []);
+    setRoteiros(((data ?? []) as unknown) as Roteiro[]);
     setLoading(false);
   }, [productId]);
 
