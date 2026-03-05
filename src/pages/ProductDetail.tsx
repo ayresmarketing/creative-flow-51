@@ -67,7 +67,7 @@ const ProductDetail = () => {
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
   const [objectiveTab, setObjectiveTab] = useState("Todos");
   const [activeTab, setActiveTab] = useState("criativos");
-  const [briefingData, setBriefingData] = useState<BriefingResponses | null>(null);
+  const [briefingData, setBriefingData] = useState<unknown>(null);
 
   // Preview dialog
   const [previewOpen, setPreviewOpen] = useState(false);
