@@ -127,6 +127,10 @@ function getFileExtension(filePath: string): string {
   return parts.length > 1 ? "." + parts[parts.length - 1] : "";
 }
 
+function sanitizeFileName(name: string): string {
+  return name.replace(/[/\\?%*:|"<>]/g, "_").trim();
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
