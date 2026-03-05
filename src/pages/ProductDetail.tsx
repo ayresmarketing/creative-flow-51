@@ -85,10 +85,15 @@ const ProductDetail = () => {
     const [prodRes, creatRes, briefRes] = await Promise.all([
       supabase.from("products").select("*").eq("id", id).single(),
       supabase.from("creatives").select("*").eq("product_id", id).order("created_at", { ascending: false }),
-      (supabase.from("product_briefings") as any).select("responses").eq("product_id", id).maybeSingle(),
+      (supabase.from("product_briefings") as any)
+        .select("responses, updated_at")
+        .eq("product_id", id)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
     ]);
     setProduct(prodRes.data);
-    setBriefingData(briefRes.data?.responses as BriefingResponses ?? null);
+    setBriefingData(briefRes.data?.responses ?? null);
 
     // Fetch thumbnails for each creative
     const creativesData = creatRes.data || [];
