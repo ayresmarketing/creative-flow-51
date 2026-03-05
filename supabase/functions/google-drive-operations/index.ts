@@ -187,8 +187,9 @@ serve(async (req) => {
           }
         }
 
-        // Create Roteiros folder
+        // Create helper folders
         await createFolder(accessToken, "Roteiros", folderId);
+        await createFolder(accessToken, "Briefing", folderId);
 
         await supabase.from("google_drive_folders").insert({
           client_id: clientId,
