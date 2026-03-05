@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useMemo, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -16,6 +15,13 @@ import { ArrowLeft, ArrowRight, ShoppingBag, BookOpen, Users, Briefcase, CheckCi
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import BriefingForm, { type BriefingResponses } from "./BriefingForm";
+import {
+  buildBriefingText,
+  getBriefingSchema,
+  getCategoryLabel,
+  serializeBriefingPayload,
+  type ProductCategory,
+} from "./briefing/briefingSchemas";
 
 interface CreateProductDialogProps {
   open: boolean;
@@ -24,7 +30,7 @@ interface CreateProductDialogProps {
   onCreated?: () => void;
 }
 
-const categoryOptions = [
+const categoryOptions: { value: ProductCategory; label: string; icon: typeof BookOpen }[] = [
   { value: "infoproduto", label: "Infoproduto", icon: BookOpen },
   { value: "prestacao_servico", label: "Prestação de serviço", icon: Briefcase },
   { value: "mentoria", label: "Mentoria", icon: Users },
@@ -34,33 +40,39 @@ const categoryOptions = [
 const generateAcronym = (name: string): string => {
   const words = name.split(/\s+/).filter((w) => w.length > 0);
   if (words.length === 0) return "";
+
   if (words.length >= 3) {
-    // 3+ words: take first letter of first 3 or 4 words
     return words.slice(0, 4).map((w) => w[0].toUpperCase()).join("");
   }
+
   if (words.length === 2) {
-    // 2 words: first letter of each + extra letter from last word
-    const a = words[0][0].toUpperCase();
-    const b = words[1][0].toUpperCase();
-    const c = words[1].length > 1 ? words[1][1].toUpperCase() : words[0].length > 1 ? words[0][1].toUpperCase() : "X";
-    return a + b + c;
+    const first = words[0][0].toUpperCase();
+    const second = words[1][0].toUpperCase();
+    const third = words[1].length > 1
+      ? words[1][1].toUpperCase()
+      : words[0].length > 1
+        ? words[0][1].toUpperCase()
+        : "X";
+    return `${first}${second}${third}`;
   }
-  // 1 word: take first 3 chars
-  const w = words[0].toUpperCase();
-  return w.length >= 3 ? w.slice(0, 3) : w.padEnd(3, w[w.length - 1]);
+
+  const single = words[0].toUpperCase();
+  return single.length >= 3 ? single.slice(0, 3) : single.padEnd(3, single[single.length - 1]);
 };
 
 const CreateProductDialog = ({ open, onOpenChange, clientId, onCreated }: CreateProductDialogProps) => {
   const { toast } = useToast();
-  const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [productName, setProductName] = useState("");
   const [acronym, setAcronym] = useState("");
-  const [category, setCategory] = useState("");
+  const [category, setCategory] = useState<ProductCategory | "">("");
   const [showBriefingForm, setShowBriefingForm] = useState(false);
   const [saving, setSaving] = useState(false);
-  // New states for loading/success flow
   const [creatingState, setCreatingState] = useState<"idle" | "loading" | "success">("idle");
+
+  const selectedCategory = useMemo<ProductCategory>(() => {
+    return category || "infoproduto";
+  }, [category]);
 
   const reset = () => {
     setStep(1);
@@ -82,16 +94,22 @@ const CreateProductDialog = ({ open, onOpenChange, clientId, onCreated }: Create
     setAcronym(generateAcronym(value));
   };
 
-  const saveProduct = async (briefingData?: BriefingResponses) => {
+  const saveProduct = async (briefingData: BriefingResponses) => {
+    if (!category) return false;
+
     setSaving(true);
     setCreatingState("loading");
 
-    const { data: product, error } = await supabase.from("products").insert({
-      name: productName.trim(),
-      acronym: acronym.trim(),
-      category,
-      client_id: clientId,
-    }).select("id").single();
+    const { data: product, error } = await supabase
+      .from("products")
+      .insert({
+        name: productName.trim(),
+        acronym: acronym.trim(),
+        category,
+        client_id: clientId,
+      })
+      .select("id")
+      .single();
 
     if (error || !product) {
       toast({ title: "Erro ao criar produto", description: error?.message, variant: "destructive" });
@@ -100,15 +118,23 @@ const CreateProductDialog = ({ open, onOpenChange, clientId, onCreated }: Create
       return false;
     }
 
-    // Save briefing if provided
-    if (briefingData) {
-      await (supabase.from("product_briefings") as any).insert({
+    const serializedBriefing = serializeBriefingPayload(category, briefingData);
+    const { error: briefingError } = await (supabase.from("product_briefings") as any).upsert(
+      {
         product_id: product.id,
-        responses: briefingData as unknown as Record<string, unknown>,
-      });
+        responses: serializedBriefing,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "product_id" },
+    );
+
+    if (briefingError) {
+      toast({ title: "Erro ao salvar briefing", description: briefingError.message, variant: "destructive" });
+      setSaving(false);
+      setCreatingState("idle");
+      return false;
     }
 
-    // Create Google Drive folder for the product
     try {
       await supabase.functions.invoke("google-drive-operations", {
         body: {
@@ -123,6 +149,20 @@ const CreateProductDialog = ({ open, onOpenChange, clientId, onCreated }: Create
       console.warn("Drive product folder creation failed (non-blocking):", driveErr);
     }
 
+    try {
+      await supabase.functions.invoke("google-drive-operations", {
+        body: {
+          action: "upload_briefing",
+          productId: product.id,
+          productName: productName.trim(),
+          categoryLabel: getCategoryLabel(category),
+          briefingText: buildBriefingText(serializedBriefing, productName.trim()),
+        },
+      });
+    } catch (driveErr) {
+      console.warn("Drive briefing upload failed (non-blocking):", driveErr);
+    }
+
     setSaving(false);
     setCreatingState("success");
     onCreated?.();
@@ -130,19 +170,13 @@ const CreateProductDialog = ({ open, onOpenChange, clientId, onCreated }: Create
   };
 
   const handleCategorySelect = (value: string) => {
-    setCategory(value);
-    if (value === "infoproduto") {
-      setShowBriefingForm(true);
-    }
-  };
-
-  const handleFinish = async () => {
-    await saveProduct();
+    setCategory(value as ProductCategory);
+    setShowBriefingForm(true);
   };
 
   const handleBriefingSubmit = async (responses: BriefingResponses) => {
-    await saveProduct(responses);
-    setShowBriefingForm(false);
+    const ok = await saveProduct(responses);
+    if (ok) setShowBriefingForm(false);
   };
 
   const handleBackToDash = () => {
@@ -165,14 +199,14 @@ const CreateProductDialog = ({ open, onOpenChange, clientId, onCreated }: Create
             </div>
           ) : creatingState === "success" ? (
             <div className="flex flex-col items-center justify-center py-12 space-y-4">
-              <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center">
-                <CheckCircle2 className="h-8 w-8 text-green-600" />
+              <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center">
+                <CheckCircle2 className="h-8 w-8 text-primary" />
               </div>
               <p className="text-foreground font-semibold text-lg text-center">
                 Produto criado com sucesso!
               </p>
               <p className="text-muted-foreground text-sm text-center">
-                Seu produto já está disponível no dashboard.
+                Produto, briefing e pasta já estão prontos.
               </p>
               <Button onClick={handleBackToDash} className="mt-4">
                 Voltar ao Dashboard
@@ -187,7 +221,7 @@ const CreateProductDialog = ({ open, onOpenChange, clientId, onCreated }: Create
                 <DialogDescription>
                   {step === 1
                     ? "Dê um nome ao seu produto e defina a sigla."
-                    : "Selecione a categoria do produto."}
+                    : "Selecione a categoria e preencha o briefing interno."}
                 </DialogDescription>
               </DialogHeader>
 
@@ -214,7 +248,7 @@ const CreateProductDialog = ({ open, onOpenChange, clientId, onCreated }: Create
                       className="font-mono uppercase"
                     />
                     <p className="text-xs text-muted-foreground">
-                      Mínimo de 3 caracteres. A sigla será usada na nomenclatura dos criativos. Ex:{" "}
+                      Mínimo de 3 e máximo de 4 caracteres. Se não preencher, geramos automaticamente. Ex: {" "}
                       <span className="font-mono font-semibold text-primary">
                         {acronym || "..."} | ADV001
                       </span>
@@ -224,7 +258,7 @@ const CreateProductDialog = ({ open, onOpenChange, clientId, onCreated }: Create
               )}
 
               {step === 2 && (
-                <div className="py-2">
+                <div className="py-2 space-y-3">
                   <RadioGroup value={category} onValueChange={handleCategorySelect} className="grid grid-cols-1 gap-3">
                     {categoryOptions.map((opt) => {
                       const Icon = opt.icon;
@@ -246,6 +280,12 @@ const CreateProductDialog = ({ open, onOpenChange, clientId, onCreated }: Create
                       );
                     })}
                   </RadioGroup>
+
+                  {category && (
+                    <p className="text-xs text-muted-foreground">
+                      Briefing ativo: {getBriefingSchema(selectedCategory).title}
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -255,6 +295,7 @@ const CreateProductDialog = ({ open, onOpenChange, clientId, onCreated }: Create
                     <ArrowLeft className="h-4 w-4 mr-1" /> Voltar
                   </Button>
                 )}
+
                 {step === 1 ? (
                   <Button
                     className="ml-auto"
@@ -266,10 +307,10 @@ const CreateProductDialog = ({ open, onOpenChange, clientId, onCreated }: Create
                 ) : (
                   <Button
                     className="ml-auto"
-                    disabled={!category || category === "infoproduto" || saving}
-                    onClick={handleFinish}
+                    disabled={!category || saving}
+                    onClick={() => setShowBriefingForm(true)}
                   >
-                    {saving ? "Criando..." : "Criar Produto"}
+                    Preencher Briefing
                   </Button>
                 )}
               </DialogFooter>
@@ -278,16 +319,19 @@ const CreateProductDialog = ({ open, onOpenChange, clientId, onCreated }: Create
         </DialogContent>
       </Dialog>
 
-      {/* Briefing form for Infoproduto */}
       <Dialog open={showBriefingForm} onOpenChange={setShowBriefingForm}>
         <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-hidden">
           <DialogHeader>
-            <DialogTitle>Briefing — Infoproduto</DialogTitle>
+            <DialogTitle>{getBriefingSchema(selectedCategory).title}</DialogTitle>
             <DialogDescription>
-              Preencha todos os campos abaixo. Essas informações são essenciais para a criação dos seus criativos.
+              {getBriefingSchema(selectedCategory).description}
             </DialogDescription>
           </DialogHeader>
-          <BriefingForm onSubmit={handleBriefingSubmit} saving={saving} />
+          <BriefingForm
+            category={selectedCategory}
+            onSubmit={handleBriefingSubmit}
+            saving={saving}
+          />
         </DialogContent>
       </Dialog>
     </>
