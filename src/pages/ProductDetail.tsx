@@ -339,6 +339,7 @@ const ProductDetail = () => {
             <TabsTrigger value="criativos">Criativos</TabsTrigger>
             <TabsTrigger value="roteiros">Roteiros</TabsTrigger>
             <TabsTrigger value="briefing">Briefing</TabsTrigger>
+            <TabsTrigger value="conteudos">Conteúdos</TabsTrigger>
             {user?.role === "GESTOR" && <TabsTrigger value="notas">Notas</TabsTrigger>}
           </TabsList>
 
