@@ -195,6 +195,13 @@ const RoteiroList = ({ productId, productAcronym }: RoteiroListProps) => {
                       {getFirstSentence(roteiro.content)}
                     </p>
 
+                    {roteiro.reference_links?.length > 0 && (
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <Link2 className="h-3 w-3" />
+                        {roteiro.reference_links.length} referência{roteiro.reference_links.length > 1 ? "s" : ""}
+                      </div>
+                    )}
+
                     <div className="flex items-center gap-4 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1">
                         <Calendar className="h-3 w-3" />
