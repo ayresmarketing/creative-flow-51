@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import {
-  Plus, FileText, Calendar, Video, MoreVertical, Pencil, Trash2, Upload, Send,
+  Plus, FileText, Calendar, Video, MoreVertical, Pencil, Trash2, Upload, Send, Link2,
 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
