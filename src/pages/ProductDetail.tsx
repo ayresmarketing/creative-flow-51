@@ -30,7 +30,7 @@ import CreativePreviewDialog from "@/components/CreativePreviewDialog";
 import RoteiroList from "@/components/RoteiroList";
 import ProductNotes from "@/components/ProductNotes";
 import BriefingDisplay from "@/components/BriefingDisplay";
-import { type BriefingResponses } from "@/components/BriefingForm";
+import ProductContentsTab from "@/components/ProductContentsTab";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface Creative {
