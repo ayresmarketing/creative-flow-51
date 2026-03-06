@@ -188,7 +188,7 @@ const Contents = () => {
                             onClick={() => toggleCompletion.mutate(content.id)}
                           >
                             <CheckCircle2 className="h-4 w-4 mr-1" />
-                            {isCompleted ? "Desmarcar" : "Marcar como Concluído"}
+                            {isCompleted ? "Desmarcar" : "Acesso enviado"}
                           </Button>
 
                           {user?.role === "GESTOR" && (
