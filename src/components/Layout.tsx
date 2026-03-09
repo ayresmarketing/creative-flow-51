@@ -14,6 +14,7 @@ import {
   User,
   Crown,
   BookOpen,
+  Layers,
   Menu,
   X
 } from "lucide-react";
