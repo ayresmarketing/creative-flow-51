@@ -52,7 +52,7 @@ const Clients = () => {
   const fetchClients = useCallback(async () => {
     const { data } = await supabase
       .from("clients")
-      .select("id, name, email, logo_url, is_suspended")
+      .select("id, name, email, logo_url, is_suspended, user_id")
       .order("created_at", { ascending: false });
     setClients((data || []) as ClientRecord[]);
   }, []);
