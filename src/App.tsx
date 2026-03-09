@@ -12,6 +12,7 @@ import Clients from "./pages/Clients";
 import Gestores from "./pages/Gestores";
 import ClientProducts from "./pages/ClientProducts";
 import Contents from "./pages/Contents";
+import SwipeFiles from "./pages/SwipeFiles";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -34,6 +35,7 @@ const App = () => (
             <Route path="/clients/:clientId" element={<ClientProducts />} />
             <Route path="/gestores" element={<Gestores />} />
             <Route path="/conteudos" element={<Contents />} />
+            <Route path="/swipe-files" element={<SwipeFiles />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import Layout from "@/components/Layout";
 import CreateClientDialog from "@/components/CreateClientDialog";
+import ResetPasswordDialog from "@/components/ResetPasswordDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -24,7 +25,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, Users, Mail, FolderOpen, Search, MoreVertical, Trash2, Ban, RotateCcw } from "lucide-react";
+import { Plus, Users, Mail, FolderOpen, Search, MoreVertical, Trash2, Ban, RotateCcw, KeyRound } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 
@@ -34,6 +35,7 @@ interface ClientRecord {
   email: string;
   logo_url?: string | null;
   is_suspended?: boolean;
+  user_id?: string | null;
 }
 
 const Clients = () => {
@@ -45,11 +47,12 @@ const Clients = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [deleteClientId, setDeleteClientId] = useState<string | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [resetClient, setResetClient] = useState<{ userId: string; name: string } | null>(null);
 
   const fetchClients = useCallback(async () => {
     const { data } = await supabase
       .from("clients")
-      .select("id, name, email, logo_url, is_suspended")
+      .select("id, name, email, logo_url, is_suspended, user_id")
       .order("created_at", { ascending: false });
     setClients((data || []) as ClientRecord[]);
   }, []);
@@ -96,6 +99,14 @@ const Clients = () => {
   return (
     <Layout>
       <CreateClientDialog open={createOpen} onOpenChange={setCreateOpen} onCreated={fetchClients} />
+      {resetClient && (
+        <ResetPasswordDialog
+          open={!!resetClient}
+          onOpenChange={(open) => { if (!open) setResetClient(null); }}
+          userId={resetClient.userId}
+          userName={resetClient.name}
+        />
+      )}
 
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>
@@ -159,6 +170,14 @@ const Clients = () => {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                      {client.user_id && (
+                        <DropdownMenuItem
+                          onClick={() => setResetClient({ userId: client.user_id!, name: client.name })}
+                        >
+                          <KeyRound className="h-4 w-4 mr-2" />
+                          Resetar senha
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuItem
                         onClick={() => handleToggleSuspend(client)}
                       >
