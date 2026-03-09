@@ -35,6 +35,7 @@ interface ClientRecord {
   email: string;
   logo_url?: string | null;
   is_suspended?: boolean;
+  user_id?: string | null;
 }
 
 const Clients = () => {
