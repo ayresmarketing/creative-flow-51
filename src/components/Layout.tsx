@@ -59,6 +59,7 @@ const Layout = ({ children }: LayoutProps) => {
     : [
         { name: "Produtos", href: "/products", icon: FolderOpen },
         { name: "Conteúdos", href: "/conteudos", icon: BookOpen },
+        { name: "Swipe Files", href: "/swipe-files", icon: Layers },
       ];
 
   const handleLogout = () => {

@@ -35,6 +35,7 @@ const App = () => (
             <Route path="/clients/:clientId" element={<ClientProducts />} />
             <Route path="/gestores" element={<Gestores />} />
             <Route path="/conteudos" element={<Contents />} />
+            <Route path="/swipe-files" element={<SwipeFiles />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
