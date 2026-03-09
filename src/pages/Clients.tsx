@@ -46,6 +46,7 @@ const Clients = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [deleteClientId, setDeleteClientId] = useState<string | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [resetClient, setResetClient] = useState<{ userId: string; name: string } | null>(null);
 
   const fetchClients = useCallback(async () => {
     const { data } = await supabase
