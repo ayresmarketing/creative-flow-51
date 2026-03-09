@@ -99,6 +99,14 @@ const Clients = () => {
   return (
     <Layout>
       <CreateClientDialog open={createOpen} onOpenChange={setCreateOpen} onCreated={fetchClients} />
+      {resetClient && (
+        <ResetPasswordDialog
+          open={!!resetClient}
+          onOpenChange={(open) => { if (!open) setResetClient(null); }}
+          userId={resetClient.userId}
+          userName={resetClient.name}
+        />
+      )}
 
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>
