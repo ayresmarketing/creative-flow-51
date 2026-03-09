@@ -170,6 +170,14 @@ const Clients = () => {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                      {client.user_id && (
+                        <DropdownMenuItem
+                          onClick={() => setResetClient({ userId: client.user_id!, name: client.name })}
+                        >
+                          <KeyRound className="h-4 w-4 mr-2" />
+                          Resetar senha
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuItem
                         onClick={() => handleToggleSuspend(client)}
                       >
