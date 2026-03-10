@@ -13,6 +13,7 @@ import Gestores from "./pages/Gestores";
 import ClientProducts from "./pages/ClientProducts";
 import Contents from "./pages/Contents";
 import SwipeFiles from "./pages/SwipeFiles";
+import ClientReport from "./pages/ClientReport";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
