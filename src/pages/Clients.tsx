@@ -37,6 +37,7 @@ interface ClientRecord {
   logo_url?: string | null;
   is_suspended?: boolean;
   user_id?: string | null;
+  report_html?: string | null;
 }
 
 const Clients = () => {
