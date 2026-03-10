@@ -121,6 +121,7 @@ const Clients = () => {
         />
       )}
 
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir cliente</AlertDialogTitle>
