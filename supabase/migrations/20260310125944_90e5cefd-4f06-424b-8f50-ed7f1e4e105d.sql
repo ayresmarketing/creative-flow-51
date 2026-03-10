@@ -1,0 +1,1 @@
+ALTER TABLE public.clients ADD COLUMN report_html text DEFAULT null;
