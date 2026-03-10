@@ -9,13 +9,20 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import {
-  Upload, Image, Video, Layers, ArrowLeft, Check, X, FileImage, FileVideo, ArrowUp, ArrowDown
+  Upload, Image, Video, Layers, ArrowLeft, Check, X, FileImage, FileVideo, ArrowUp, ArrowDown, Plus, Copy as CopyIcon
 } from "lucide-react";
 
 type CreativeType = "PHOTO" | "VIDEO" | "CAROUSEL";
 type ObjectiveType = "Vendas" | "Remarketing" | "Conteúdo" | "Captação" | "Lembrete" | "Carrinho Aberto";
 type FormatType = "Feed" | "Stories";
+
+interface BulkItem {
+  id: string;
+  primaryFile: File;
+  secondaryFile: File | null;
+}
 
 const CreativeUpload = () => {
   const { id } = useParams();
@@ -35,6 +42,12 @@ const CreativeUpload = () => {
   const [isDragOverStories, setIsDragOverStories] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  // Bulk mode
+  const [bulkMode, setBulkMode] = useState(false);
+  const [bulkPrimaryFormat, setBulkPrimaryFormat] = useState<FormatType | "">("");
+  const [bulkItems, setBulkItems] = useState<BulkItem[]>([]);
+  const [isDragOverBulk, setIsDragOverBulk] = useState(false);
+
   const [productName, setProductName] = useState("");
   const [productAcronym, setProductAcronym] = useState("");
 
@@ -53,11 +66,10 @@ const CreativeUpload = () => {
       });
   }, [id]);
 
-  const generateCode = useCallback(async () => {
+  const generateCode = useCallback(async (offset = 0) => {
     if (!creativeType || !objective || !id) return "";
     const typePrefix = creativeType === "PHOTO" ? "ADF" : creativeType === "VIDEO" ? "ADV" : "ADC";
 
-    // Count existing creatives with same objective+type for this product
     const { count } = await supabase
       .from("creatives")
       .select("id", { count: "exact", head: true })
@@ -65,17 +77,17 @@ const CreativeUpload = () => {
       .eq("objective", objective)
       .eq("type", creativeType);
 
-    const nextNum = (count || 0) + 1;
+    const nextNum = (count || 0) + 1 + offset;
     return `${productAcronym} | ${objective} | ${typePrefix}${nextNum.toString().padStart(3, "0")}`;
   }, [creativeType, objective, id, productAcronym]);
 
   const [generatedCode, setGeneratedCode] = useState("");
 
   useEffect(() => {
-    if (step === 5 && creativeType && objective) {
+    if (step === 5 && creativeType && objective && !bulkMode) {
       generateCode().then(setGeneratedCode);
     }
-  }, [step, generateCode, creativeType, objective]);
+  }, [step, generateCode, creativeType, objective, bulkMode]);
 
   const getAcceptedFileTypes = () => {
     switch (creativeType) {
@@ -122,7 +134,38 @@ const CreativeUpload = () => {
     return (!needFeed || feedFiles.length > 0) && (!needStories || storiesFiles.length > 0);
   };
 
+  // Bulk handlers
+  const handleBulkPrimaryFiles = (fileList: FileList | null) => {
+    if (!fileList) return;
+    const files = Array.from(fileList);
+    const newItems: BulkItem[] = files.map((f) => ({
+      id: crypto.randomUUID(),
+      primaryFile: f,
+      secondaryFile: null,
+    }));
+    setBulkItems((prev) => [...prev, ...newItems]);
+  };
+
+  const handleBulkSecondaryFile = (itemId: string, file: File | null) => {
+    setBulkItems((prev) => prev.map((item) =>
+      item.id === itemId ? { ...item, secondaryFile: file } : item
+    ));
+  };
+
+  const removeBulkItem = (itemId: string) => {
+    setBulkItems((prev) => prev.filter((item) => item.id !== itemId));
+  };
+
   const canProceed = () => {
+    if (bulkMode) {
+      switch (step) {
+        case 1: return creativeType !== "";
+        case 2: return objective !== "";
+        case 3: return bulkPrimaryFormat !== "";
+        case 4: return bulkItems.length > 0;
+        default: return false;
+      }
+    }
     switch (step) {
       case 1: return creativeType !== "";
       case 2: return objective !== "";
@@ -137,9 +180,86 @@ const CreativeUpload = () => {
     setSubmitting(true);
 
     try {
+      if (bulkMode) {
+        // Bulk submit - create one creative per item
+        for (let i = 0; i < bulkItems.length; i++) {
+          const item = bulkItems[i];
+          const code = await generateCode(i);
+          const itemFormats: FormatType[] = [bulkPrimaryFormat as FormatType];
+          if (item.secondaryFile) {
+            const secondaryFormat = bulkPrimaryFormat === "Feed" ? "Stories" : "Feed";
+            itemFormats.push(secondaryFormat);
+          }
+
+          const { data: creative, error: crErr } = await supabase.from("creatives").insert({
+            code,
+            type: creativeType,
+            objective,
+            formats: itemFormats,
+            product_id: id,
+            notes: notes || null,
+          }).select("id").single();
+
+          if (crErr || !creative) continue;
+
+          // Upload primary file
+          const primaryPath = `${id}/${creative.id}/${bulkPrimaryFormat}/${Date.now()}_${item.primaryFile.name}`;
+          await supabase.storage.from("creatives").upload(primaryPath, item.primaryFile);
+          await supabase.from("creative_files").insert({
+            creative_id: creative.id,
+            file_path: primaryPath,
+            file_name: item.primaryFile.name,
+            format: bulkPrimaryFormat,
+            position: 0,
+            file_size: item.primaryFile.size,
+          });
+
+          // Upload secondary file if exists
+          if (item.secondaryFile) {
+            const secondaryFormat = bulkPrimaryFormat === "Feed" ? "Stories" : "Feed";
+            const secondaryPath = `${id}/${creative.id}/${secondaryFormat}/${Date.now()}_${item.secondaryFile.name}`;
+            await supabase.storage.from("creatives").upload(secondaryPath, item.secondaryFile);
+            await supabase.from("creative_files").insert({
+              creative_id: creative.id,
+              file_path: secondaryPath,
+              file_name: item.secondaryFile.name,
+              format: secondaryFormat,
+              position: 0,
+              file_size: item.secondaryFile.size,
+            });
+          }
+
+          // Google Drive upload
+          try {
+            const { data: uploadedFiles } = await supabase
+              .from("creative_files")
+              .select("file_path, file_name")
+              .eq("creative_id", creative.id);
+            if (uploadedFiles && uploadedFiles.length > 0) {
+              await supabase.functions.invoke("google-drive-operations", {
+                body: {
+                  action: "upload_creative",
+                  productId: id,
+                  creativeType,
+                  objective,
+                  creativeCode: code,
+                  files: uploadedFiles,
+                },
+              });
+            }
+          } catch (driveErr) {
+            console.warn("Drive upload failed (non-blocking):", driveErr);
+          }
+        }
+
+        toast({ title: `${bulkItems.length} criativos enviados com sucesso!` });
+        navigate(`/products/${id}`);
+        return;
+      }
+
+      // Single submit (existing logic)
       const code = generatedCode || await generateCode();
 
-      // 1. Insert creative record
       const { data: creative, error: crErr } = await supabase.from("creatives").insert({
         code,
         type: creativeType,
@@ -151,7 +271,6 @@ const CreativeUpload = () => {
 
       if (crErr || !creative) throw crErr;
 
-      // 2. Upload files and create creative_files records
       const allFiles: { file: File; format: string; position: number }[] = [];
       feedFiles.forEach((f, i) => allFiles.push({ file: f, format: "Feed", position: i }));
       storiesFiles.forEach((f, i) => allFiles.push({ file: f, format: "Stories", position: i }));
@@ -159,9 +278,7 @@ const CreativeUpload = () => {
       for (const { file, format, position } of allFiles) {
         const filePath = `${id}/${creative.id}/${format}/${Date.now()}_${file.name}`;
         const { error: upErr } = await supabase.storage.from("creatives").upload(filePath, file);
-        if (upErr) {
-          continue;
-        }
+        if (upErr) continue;
 
         await supabase.from("creative_files").insert({
           creative_id: creative.id,
@@ -173,7 +290,6 @@ const CreativeUpload = () => {
         });
       }
 
-      // If upload came from a roteiro, link the creative and auto-set is_recorded
       if (roteiroId && creative) {
         await supabase
           .from("roteiros")
@@ -185,9 +301,7 @@ const CreativeUpload = () => {
           .eq("id", roteiroId);
       }
 
-      // Upload files to Google Drive
       try {
-        // Collect actual uploaded file paths from the creative_files we just inserted
         const { data: uploadedFiles } = await supabase
           .from("creative_files")
           .select("file_path, file_name")
@@ -293,6 +407,8 @@ const CreativeUpload = () => {
     </div>
   );
 
+  const secondaryFormatLabel = bulkPrimaryFormat === "Feed" ? "Stories" : "Feed";
+
   const renderStepContent = () => {
     switch (step) {
       case 1:
@@ -304,10 +420,10 @@ const CreativeUpload = () => {
                 <Card
                   key={type}
                   className={`cursor-pointer transition-all hover:shadow-md ${creativeType === type ? "ring-2 ring-primary hub-shadow" : ""}`}
-                  onClick={() => setCreativeType(type)}
+                  onClick={() => { setCreativeType(type); setBulkMode(false); setBulkItems([]); }}
                 >
                   <CardContent className="p-6 text-center">
-                    <div className={`mx-auto mb-4 p-4 rounded-lg ${type === "PHOTO" ? "bg-primary/10 text-primary" : type === "VIDEO" ? "bg-green-100 text-green-600" : "bg-amber-100 text-amber-600"}`}>
+                    <div className={`mx-auto mb-4 p-4 rounded-lg ${type === "PHOTO" ? "bg-primary/10 text-primary" : type === "VIDEO" ? "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400" : "bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400"}`}>
                       {getTypeIcon(type)}
                     </div>
                     <h4 className="font-semibold">{type === "PHOTO" ? "Foto" : type === "VIDEO" ? "Vídeo" : "Carrossel"}</h4>
@@ -318,6 +434,31 @@ const CreativeUpload = () => {
                 </Card>
               ))}
             </div>
+            {/* Bulk toggle - only for PHOTO and VIDEO */}
+            {(creativeType === "PHOTO" || creativeType === "VIDEO") && (
+              <Card className="border-primary/20 bg-primary/5">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <CopyIcon className="h-5 w-5 text-primary" />
+                      <div>
+                        <p className="font-medium text-sm">Subir vários simultaneamente</p>
+                        <p className="text-xs text-muted-foreground">Envie múltiplos criativos de uma só vez</p>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={bulkMode}
+                      onCheckedChange={(checked) => {
+                        setBulkMode(checked);
+                        setBulkItems([]);
+                        setBulkPrimaryFormat("");
+                        setFormats([]);
+                      }}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
         );
 
@@ -347,6 +488,37 @@ const CreativeUpload = () => {
         );
 
       case 3:
+        if (bulkMode) {
+          return (
+            <div className="space-y-6">
+              <h3 className="text-lg font-semibold mb-4">Selecione o formato principal</h3>
+              <p className="text-muted-foreground mb-4">Todos os arquivos que você subir serão registrados neste formato. A versão alternativa poderá ser adicionada individualmente.</p>
+              <div className="space-y-3">
+                {(["Feed", "Stories"] as FormatType[]).map((format) => (
+                  <Card
+                    key={format}
+                    className={`cursor-pointer transition-all hover:shadow-md ${bulkPrimaryFormat === format ? "ring-2 ring-primary hub-shadow" : ""}`}
+                    onClick={() => setBulkPrimaryFormat(format)}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-lg ${bulkPrimaryFormat === format ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
+                          <Check className="h-4 w-4" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-medium">{format}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {format === "Feed" ? "Formato quadrado/horizontal para feed" : "Formato vertical 9:16 para Stories/Reels"}
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          );
+        }
         return (
           <div className="space-y-6">
             <h3 className="text-lg font-semibold mb-4">Quais versões você tem?</h3>
@@ -376,6 +548,124 @@ const CreativeUpload = () => {
         );
 
       case 4:
+        if (bulkMode) {
+          return (
+            <div className="space-y-6">
+              <h3 className="text-lg font-semibold mb-2">Envie os arquivos ({bulkPrimaryFormat})</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Selecione todos os arquivos de {bulkPrimaryFormat}. Depois, você pode adicionar a versão {secondaryFormatLabel} individualmente para cada um.
+              </p>
+
+              {/* Upload zone for bulk primary */}
+              <Card
+                className={`border-2 border-dashed transition-colors ${isDragOverBulk ? "border-primary bg-primary/5" : "border-muted-foreground/25"}`}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setIsDragOverBulk(false);
+                  handleBulkPrimaryFiles(e.dataTransfer.files);
+                }}
+                onDragOver={(e) => { e.preventDefault(); setIsDragOverBulk(true); }}
+                onDragLeave={() => setIsDragOverBulk(false)}
+              >
+                <CardContent className="p-6 text-center">
+                  <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                  <p className="text-sm font-medium text-foreground mb-1">
+                    Arraste os arquivos ou clique para selecionar
+                  </p>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    {creativeType === "PHOTO" ? "JPG, PNG, WEBP" : "MP4, MOV, AVI"} · Múltiplos arquivos
+                  </p>
+                  <input
+                    type="file"
+                    id="bulk-file-upload"
+                    className="hidden"
+                    accept={getAcceptedFileTypes()}
+                    multiple
+                    onChange={(e) => handleBulkPrimaryFiles(e.target.files)}
+                  />
+                  <Button variant="outline" size="sm" onClick={() => document.getElementById("bulk-file-upload")?.click()}>
+                    <Plus className="h-4 w-4 mr-1" />
+                    Selecionar Arquivos
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Bulk items list */}
+              {bulkItems.length > 0 && (
+                <div className="space-y-3">
+                  <Label className="text-sm font-semibold">{bulkItems.length} criativo(s) · {bulkPrimaryFormat}</Label>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                    {bulkItems.map((item, idx) => (
+                      <Card key={item.id} className="overflow-hidden">
+                        <CardContent className="p-0">
+                          <div className="flex">
+                            {/* Left: Primary file */}
+                            <div className="flex-1 p-3 border-r border-border">
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" className="text-xs shrink-0">{bulkPrimaryFormat}</Badge>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium truncate">{item.primaryFile.name}</p>
+                                  <p className="text-xs text-muted-foreground">{(item.primaryFile.size / (1024 * 1024)).toFixed(1)} MB</p>
+                                </div>
+                                <Button variant="ghost" size="sm" className="h-6 w-6 p-0 shrink-0" onClick={() => removeBulkItem(item.id)}>
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </div>
+                            {/* Right: Secondary file */}
+                            <div className="w-40 p-3 bg-muted/30">
+                              {item.secondaryFile ? (
+                                <div className="flex items-center gap-1">
+                                  <Badge variant="secondary" className="text-xs shrink-0">{secondaryFormatLabel}</Badge>
+                                  <p className="text-xs truncate flex-1">{item.secondaryFile.name}</p>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-5 w-5 p-0 shrink-0"
+                                    onClick={() => handleBulkSecondaryFile(item.id, null)}
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              ) : (
+                                <>
+                                  <input
+                                    type="file"
+                                    id={`secondary-${item.id}`}
+                                    className="hidden"
+                                    accept={getAcceptedFileTypes()}
+                                    onChange={(e) => {
+                                      const f = e.target.files?.[0];
+                                      if (f) handleBulkSecondaryFile(item.id, f);
+                                    }}
+                                  />
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="w-full text-xs h-7"
+                                    onClick={() => document.getElementById(`secondary-${item.id}`)?.click()}
+                                  >
+                                    <Plus className="h-3 w-3 mr-1" />
+                                    {secondaryFormatLabel}
+                                  </Button>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label htmlFor="notes">Observações (opcional)</Label>
+                <Textarea id="notes" placeholder="Adicione observações..." value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} />
+              </div>
+            </div>
+          );
+        }
         return (
           <div className="space-y-6">
             <h3 className="text-lg font-semibold mb-4">Envie os arquivos</h3>
@@ -395,10 +685,49 @@ const CreativeUpload = () => {
         );
 
       case 5:
+        if (bulkMode) {
+          return (
+            <div className="space-y-6">
+              <div className="text-center">
+                <div className="mx-auto w-16 h-16 bg-green-50 dark:bg-green-900/30 rounded-full flex items-center justify-center mb-4">
+                  <Check className="h-8 w-8 text-green-600" />
+                </div>
+                <h3 className="text-lg font-semibold mb-2">Revisar e confirmar</h3>
+                <p className="text-muted-foreground">Você está prestes a enviar {bulkItems.length} criativos</p>
+              </div>
+              <Card className="hub-card-shadow">
+                <CardContent className="p-6 space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-sm text-muted-foreground">Tipo</Label>
+                      <p className="font-medium">{creativeType === "PHOTO" ? "Foto" : "Vídeo"}</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm text-muted-foreground">Objetivo</Label>
+                      <p className="font-medium">{objective}</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm text-muted-foreground">Formato principal</Label>
+                      <p className="font-medium">{bulkPrimaryFormat}</p>
+                    </div>
+                    <div>
+                      <Label className="text-sm text-muted-foreground">Total de criativos</Label>
+                      <p className="font-medium">{bulkItems.length}</p>
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-sm text-muted-foreground">Com versão {secondaryFormatLabel}</Label>
+                    <p className="font-medium">{bulkItems.filter((i) => i.secondaryFile).length} de {bulkItems.length}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          );
+        }
         return (
           <div className="space-y-6">
             <div className="text-center">
-              <div className="mx-auto w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mb-4">
+              <div className="mx-auto w-16 h-16 bg-green-50 dark:bg-green-900/30 rounded-full flex items-center justify-center mb-4">
                 <Check className="h-8 w-8 text-green-600" />
               </div>
               <h3 className="text-lg font-semibold mb-2">Revisar e confirmar</h3>
@@ -469,13 +798,21 @@ const CreativeUpload = () => {
     }
   };
 
-  const steps = [
-    { title: "Tipo", completed: creativeType !== "" },
-    { title: "Objetivo", completed: objective !== "" },
-    { title: "Formatos", completed: formats.length > 0 },
-    { title: "Arquivos", completed: hasRequiredFiles() },
-    { title: "Revisar", completed: false },
-  ];
+  const steps = bulkMode
+    ? [
+        { title: "Tipo", completed: creativeType !== "" },
+        { title: "Objetivo", completed: objective !== "" },
+        { title: "Formato", completed: bulkPrimaryFormat !== "" },
+        { title: "Arquivos", completed: bulkItems.length > 0 },
+        { title: "Revisar", completed: false },
+      ]
+    : [
+        { title: "Tipo", completed: creativeType !== "" },
+        { title: "Objetivo", completed: objective !== "" },
+        { title: "Formatos", completed: formats.length > 0 },
+        { title: "Arquivos", completed: hasRequiredFiles() },
+        { title: "Revisar", completed: false },
+      ];
 
   return (
     <Layout>
@@ -486,7 +823,9 @@ const CreativeUpload = () => {
             <ArrowLeft className="h-4 w-4" /> Voltar
           </Button>
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-foreground">Enviar Criativo</h1>
+            <h1 className="text-2xl md:text-3xl font-bold text-foreground">
+              {bulkMode ? "Enviar Criativos em Lote" : "Enviar Criativo"}
+            </h1>
             <p className="text-muted-foreground mt-1 text-sm">{productName || "Carregando..."}</p>
           </div>
         </div>
@@ -531,7 +870,7 @@ const CreativeUpload = () => {
             disabled={step < 5 ? !canProceed() : submitting}
             className="hub-shadow"
           >
-            {step === 5 ? (submitting ? "Enviando..." : "Enviar Criativo") : "Continuar"}
+            {step === 5 ? (submitting ? "Enviando..." : bulkMode ? `Enviar ${bulkItems.length} Criativos` : "Enviar Criativo") : "Continuar"}
           </Button>
         </div>
       </div>
