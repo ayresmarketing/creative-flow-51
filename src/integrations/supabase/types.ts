@@ -22,6 +22,7 @@ export type Database = {
           is_suspended: boolean
           logo_url: string | null
           name: string
+          report_html: string | null
           user_id: string | null
         }
         Insert: {
@@ -31,6 +32,7 @@ export type Database = {
           is_suspended?: boolean
           logo_url?: string | null
           name: string
+          report_html?: string | null
           user_id?: string | null
         }
         Update: {
@@ -40,6 +42,7 @@ export type Database = {
           is_suspended?: boolean
           logo_url?: string | null
           name?: string
+          report_html?: string | null
           user_id?: string | null
         }
         Relationships: []

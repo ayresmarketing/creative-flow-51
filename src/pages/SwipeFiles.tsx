@@ -19,6 +19,7 @@ import {
   CalendarCheck,
   DoorOpen,
   LayoutGrid,
+  Sparkles,
 } from "lucide-react";
 
 interface SwipeItem {
@@ -37,6 +38,7 @@ interface SwipeCategory {
   icon: typeof Rocket;
   color: string;
   bgGradient: string;
+  accentColor: string;
   titles: SwipeTitle[];
 }
 
@@ -53,6 +55,7 @@ const CATEGORIES: SwipeCategory[] = [
     icon: Rocket,
     color: "text-blue-600 dark:text-blue-400",
     bgGradient: "from-blue-500/10 to-blue-600/5",
+    accentColor: "from-blue-500 to-blue-700",
     titles: [
       {
         name: "Conversão",
@@ -86,6 +89,7 @@ const CATEGORIES: SwipeCategory[] = [
     icon: Megaphone,
     color: "text-purple-600 dark:text-purple-400",
     bgGradient: "from-purple-500/10 to-purple-600/5",
+    accentColor: "from-purple-500 to-purple-700",
     titles: [
       {
         name: "Captura",
@@ -132,6 +136,7 @@ const CATEGORIES: SwipeCategory[] = [
     icon: ShoppingCart,
     color: "text-emerald-600 dark:text-emerald-400",
     bgGradient: "from-emerald-500/10 to-emerald-600/5",
+    accentColor: "from-emerald-500 to-emerald-700",
     titles: [],
   },
   {
@@ -139,6 +144,7 @@ const CATEGORIES: SwipeCategory[] = [
     icon: MapPin,
     color: "text-orange-600 dark:text-orange-400",
     bgGradient: "from-orange-500/10 to-orange-600/5",
+    accentColor: "from-orange-500 to-orange-700",
     titles: [
       {
         name: "Página",
@@ -182,117 +188,130 @@ const SwipeFiles = () => {
 
   return (
     <Layout>
-      <div className="p-4 md:p-8 space-y-6 md:space-y-8">
-        {/* Header */}
-        <div className="flex items-center gap-3">
-          {selectedCategory && (
-            <Button variant="ghost" size="icon" onClick={() => setSelectedCategory(null)}>
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-          )}
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-foreground">
-              {selectedCategory ? selectedCategory.name : "Swipe Files"}
-            </h1>
-            <p className="text-muted-foreground mt-1 text-sm">
-              {selectedCategory
-                ? "Explore as ideias e referências desta categoria"
-                : "Encontre ideias de criativos, landing pages, vídeos e muito mais"}
-            </p>
-          </div>
+      <div className="p-4 md:p-8 min-h-[calc(100vh-3.5rem)] md:min-h-screen relative overflow-hidden">
+        {/* Background effects */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+          <div className="absolute top-20 left-1/4 w-72 h-72 bg-primary/5 rounded-full blur-3xl animate-float-slow" />
+          <div className="absolute bottom-20 right-1/4 w-96 h-96 bg-purple-500/5 rounded-full blur-3xl animate-float-slow-reverse" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-to-br from-primary/3 to-purple-500/3 rounded-full blur-3xl" />
         </div>
 
-        {!selectedCategory ? (
-          /* ── Category Grid ── */
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6 max-w-3xl">
-            {CATEGORIES.map((cat) => {
-              const Icon = cat.icon;
-              return (
-                <Card
-                  key={cat.name}
-                  className={`group cursor-pointer border-border/50 hover:border-border transition-all duration-300 hover:shadow-lg bg-gradient-to-br ${cat.bgGradient}`}
-                  onClick={() => setSelectedCategory(cat)}
-                >
-                  <CardContent className="p-6 md:p-8 flex items-center gap-4">
-                    <div className={`p-3 rounded-xl bg-background/80 shadow-sm ${cat.color}`}>
-                      <Icon className="h-7 w-7" />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-lg font-bold text-foreground group-hover:text-primary transition-colors">
-                        {cat.name}
-                      </h3>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {cat.titles.length > 0
-                          ? `${cat.titles.length} ${cat.titles.length === 1 ? "título" : "títulos"} disponíveis`
-                          : "Em breve"}
-                      </p>
-                    </div>
-                    <Badge variant="secondary" className="text-xs shrink-0">
-                      {cat.titles.reduce((acc, t) => acc + t.items.length, 0)} itens
-                    </Badge>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        ) : selectedCategory.titles.length === 0 ? (
-          /* ── Empty Category ── */
-          <Card className="border-dashed">
-            <CardContent className="p-12 text-center">
-              <ShoppingCart className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-foreground mb-2">Em breve</h3>
-              <p className="text-muted-foreground">
-                Os conteúdos desta categoria estão sendo preparados.
+        <div className="relative z-10 flex flex-col items-center">
+          {/* Header */}
+          <div className="flex items-center gap-3 mb-8 md:mb-12 w-full max-w-4xl">
+            {selectedCategory && (
+              <Button variant="ghost" size="icon" onClick={() => setSelectedCategory(null)}>
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+            )}
+            <div className="text-center flex-1">
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <Sparkles className="h-5 w-5 text-primary" />
+                <h1 className="text-2xl md:text-3xl font-bold text-foreground">
+                  {selectedCategory ? selectedCategory.name : "Swipe Files"}
+                </h1>
+                <Sparkles className="h-5 w-5 text-primary" />
+              </div>
+              <p className="text-muted-foreground text-sm max-w-md mx-auto">
+                {selectedCategory
+                  ? "Explore as ideias e referências desta categoria"
+                  : "Encontre ideias de criativos, landing pages, vídeos e muito mais"}
               </p>
-            </CardContent>
-          </Card>
-        ) : (
-          /* ── Titles + Items ── */
-          <div className="space-y-8">
-            {selectedCategory.titles.map((title) => {
-              const TitleIcon = titleIcons[title.name] || FileText;
-              return (
-                <div key={title.name} className="space-y-4">
-                  <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-lg bg-primary/10 ${selectedCategory.color}`}>
-                      <TitleIcon className="h-5 w-5" />
-                    </div>
-                    <h2 className="text-xl font-bold text-foreground">{title.name}</h2>
-                    <Badge variant="outline" className="text-xs">
-                      {title.items.length}
-                    </Badge>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {title.items.map((item) => {
-                      const ItemIcon = iconMap[item.icon];
-                      return (
-                        <a
-                          key={item.label}
-                          href={item.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="group"
-                        >
-                          <Card className="border-border/50 hover:border-primary/40 transition-all duration-200 hover:shadow-md">
-                            <CardContent className="p-4 flex items-center gap-3">
-                              <div className="p-2 rounded-lg bg-muted group-hover:bg-primary/10 transition-colors">
-                                <ItemIcon className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
-                              </div>
-                              <span className="flex-1 text-sm font-medium text-foreground group-hover:text-primary transition-colors">
-                                {item.label}
-                              </span>
-                              <ExternalLink className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                            </CardContent>
-                          </Card>
-                        </a>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
+            </div>
           </div>
-        )}
+
+          {!selectedCategory ? (
+            /* ── Category Grid ── */
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 md:gap-6 w-full max-w-3xl">
+              {CATEGORIES.map((cat) => {
+                const Icon = cat.icon;
+                return (
+                  <Card
+                    key={cat.name}
+                    className={`group cursor-pointer border-border/50 hover:border-border transition-all duration-500 hover:shadow-xl hover:-translate-y-1 bg-gradient-to-br ${cat.bgGradient} backdrop-blur-sm`}
+                    onClick={() => setSelectedCategory(cat)}
+                  >
+                    <CardContent className="p-6 md:p-8 flex items-center gap-5">
+                      <div className={`p-4 rounded-2xl bg-gradient-to-br ${cat.accentColor} text-white shadow-lg group-hover:scale-110 transition-transform duration-300`}>
+                        <Icon className="h-7 w-7" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="text-lg font-bold text-foreground group-hover:text-primary transition-colors">
+                          {cat.name}
+                        </h3>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {cat.titles.length > 0
+                            ? `${cat.titles.length} ${cat.titles.length === 1 ? "título" : "títulos"} disponíveis`
+                            : "Em breve"}
+                        </p>
+                      </div>
+                      <Badge variant="secondary" className="text-xs shrink-0 shadow-sm">
+                        {cat.titles.reduce((acc, t) => acc + t.items.length, 0)} itens
+                      </Badge>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          ) : selectedCategory.titles.length === 0 ? (
+            /* ── Empty Category ── */
+            <Card className="border-dashed w-full max-w-3xl">
+              <CardContent className="p-12 text-center">
+                <ShoppingCart className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-foreground mb-2">Em breve</h3>
+                <p className="text-muted-foreground">
+                  Os conteúdos desta categoria estão sendo preparados.
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            /* ── Titles + Items ── */
+            <div className="space-y-8 w-full max-w-4xl">
+              {selectedCategory.titles.map((title) => {
+                const TitleIcon = titleIcons[title.name] || FileText;
+                return (
+                  <div key={title.name} className="space-y-4">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2.5 rounded-xl bg-gradient-to-br ${selectedCategory.accentColor} text-white shadow-md`}>
+                        <TitleIcon className="h-5 w-5" />
+                      </div>
+                      <h2 className="text-xl font-bold text-foreground">{title.name}</h2>
+                      <Badge variant="outline" className="text-xs">
+                        {title.items.length}
+                      </Badge>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {title.items.map((item) => {
+                        const ItemIcon = iconMap[item.icon];
+                        return (
+                          <a
+                            key={item.label}
+                            href={item.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="group/item"
+                          >
+                            <Card className="border-border/50 hover:border-primary/40 transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 backdrop-blur-sm">
+                              <CardContent className="p-4 flex items-center gap-3">
+                                <div className="p-2 rounded-lg bg-muted group-hover/item:bg-primary/10 transition-colors">
+                                  <ItemIcon className="h-5 w-5 text-muted-foreground group-hover/item:text-primary transition-colors" />
+                                </div>
+                                <span className="flex-1 text-sm font-medium text-foreground group-hover/item:text-primary transition-colors">
+                                  {item.label}
+                                </span>
+                                <ExternalLink className="h-4 w-4 text-muted-foreground opacity-0 group-hover/item:opacity-100 transition-opacity" />
+                              </CardContent>
+                            </Card>
+                          </a>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
     </Layout>
   );
