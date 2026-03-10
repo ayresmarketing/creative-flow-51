@@ -16,7 +16,8 @@ import {
   BookOpen,
   Layers,
   Menu,
-  X
+  X,
+  BarChart3
 } from "lucide-react";
 
 interface LayoutProps {
