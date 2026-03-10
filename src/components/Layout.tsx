@@ -56,11 +56,13 @@ const Layout = ({ children }: LayoutProps) => {
         { name: "Clientes", href: "/clients", icon: Users },
         { name: "Gestores", href: "/gestores", icon: Shield },
         { name: "Conteúdos", href: "/conteudos", icon: BookOpen },
+        { name: "Swipe Files", href: "/swipe-files", icon: Layers },
       ]
     : [
         { name: "Produtos", href: "/products", icon: FolderOpen },
         { name: "Conteúdos", href: "/conteudos", icon: BookOpen },
         { name: "Swipe Files", href: "/swipe-files", icon: Layers },
+        { name: "Relatório", href: "/relatorio", icon: BarChart3 },
       ];
 
   const handleLogout = () => {
