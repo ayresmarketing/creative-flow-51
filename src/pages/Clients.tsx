@@ -110,8 +110,17 @@ const Clients = () => {
           userName={resetClient.name}
         />
       )}
+      {embedClient && (
+        <EmbedReportDialog
+          open={!!embedClient}
+          onOpenChange={(open) => { if (!open) setEmbedClient(null); }}
+          clientId={embedClient.id}
+          clientName={embedClient.name}
+          currentHtml={embedClient.reportHtml}
+          onUpdated={fetchClients}
+        />
+      )}
 
-      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir cliente</AlertDialogTitle>
