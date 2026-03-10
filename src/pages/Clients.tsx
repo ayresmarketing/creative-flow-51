@@ -26,7 +26,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, Users, Mail, FolderOpen, Search, MoreVertical, Trash2, Ban, RotateCcw, KeyRound } from "lucide-react";
+import { Plus, Users, Mail, FolderOpen, Search, MoreVertical, Trash2, Ban, RotateCcw, KeyRound, Code2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 
