@@ -122,6 +122,15 @@ const Clients = () => {
           onUpdated={fetchClients}
         />
       )}
+      {teamMemberClient && (
+        <AddTeamMemberDialog
+          open={!!teamMemberClient}
+          onOpenChange={(open) => { if (!open) setTeamMemberClient(null); }}
+          clientId={teamMemberClient.id}
+          clientName={teamMemberClient.name}
+          onAdded={fetchClients}
+        />
+      )}
 
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>
