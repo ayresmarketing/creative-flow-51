@@ -31,7 +31,7 @@ interface AddTeamMemberDialogProps {
 
 const AddTeamMemberDialog = ({ open, onOpenChange, clientId, clientName, onAdded }: AddTeamMemberDialogProps) => {
   const { toast } = useToast();
-  const { addClient } = useAuth();
+  
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [saving, setSaving] = useState(false);
