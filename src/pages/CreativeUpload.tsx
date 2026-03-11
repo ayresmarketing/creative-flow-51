@@ -70,14 +70,26 @@ const CreativeUpload = () => {
     if (!creativeType || !objective || !id) return "";
     const typePrefix = creativeType === "PHOTO" ? "ADF" : creativeType === "VIDEO" ? "ADV" : "ADC";
 
-    const { count } = await supabase
+    // Get the highest existing number from codes to continue sequentially
+    const { data: existingCreatives } = await supabase
       .from("creatives")
-      .select("id", { count: "exact", head: true })
+      .select("code")
       .eq("product_id", id)
       .eq("objective", objective)
       .eq("type", creativeType);
 
-    const nextNum = (count || 0) + 1 + offset;
+    let maxNum = 0;
+    if (existingCreatives && existingCreatives.length > 0) {
+      for (const cr of existingCreatives) {
+        const match = cr.code.match(/(?:ADF|ADV|ADC)(\d+)$/);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (num > maxNum) maxNum = num;
+        }
+      }
+    }
+
+    const nextNum = maxNum + 1 + offset;
     return `${productAcronym} | ${objective} | ${typePrefix}${nextNum.toString().padStart(3, "0")}`;
   }, [creativeType, objective, id, productAcronym]);
 
@@ -594,66 +606,56 @@ const CreativeUpload = () => {
               {bulkItems.length > 0 && (
                 <div className="space-y-3">
                   <Label className="text-sm font-semibold">{bulkItems.length} criativo(s) · {bulkPrimaryFormat}</Label>
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                    {bulkItems.map((item, idx) => (
-                      <Card key={item.id} className="overflow-hidden">
-                        <CardContent className="p-0">
-                          <div className="flex">
-                            {/* Left: Primary file */}
-                            <div className="flex-1 p-3 border-r border-border">
-                              <div className="flex items-center gap-2">
-                                <Badge variant="outline" className="text-xs shrink-0">{bulkPrimaryFormat}</Badge>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-medium truncate">{item.primaryFile.name}</p>
-                                  <p className="text-xs text-muted-foreground">{(item.primaryFile.size / (1024 * 1024)).toFixed(1)} MB</p>
-                                </div>
-                                <Button variant="ghost" size="sm" className="h-6 w-6 p-0 shrink-0" onClick={() => removeBulkItem(item.id)}>
-                                  <X className="h-3 w-3" />
-                                </Button>
-                              </div>
-                            </div>
-                            {/* Right: Secondary file */}
-                            <div className="w-40 p-3 bg-muted/30">
-                              {item.secondaryFile ? (
-                                <div className="flex items-center gap-1">
-                                  <Badge variant="secondary" className="text-xs shrink-0">{secondaryFormatLabel}</Badge>
-                                  <p className="text-xs truncate flex-1">{item.secondaryFile.name}</p>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-5 w-5 p-0 shrink-0"
-                                    onClick={() => handleBulkSecondaryFile(item.id, null)}
-                                  >
-                                    <X className="h-3 w-3" />
-                                  </Button>
-                                </div>
-                              ) : (
-                                <>
-                                  <input
-                                    type="file"
-                                    id={`secondary-${item.id}`}
-                                    className="hidden"
-                                    accept={getAcceptedFileTypes()}
-                                    onChange={(e) => {
-                                      const f = e.target.files?.[0];
-                                      if (f) handleBulkSecondaryFile(item.id, f);
-                                    }}
-                                  />
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="w-full text-xs h-7"
-                                    onClick={() => document.getElementById(`secondary-${item.id}`)?.click()}
-                                  >
-                                    <Plus className="h-3 w-3 mr-1" />
-                                    {secondaryFormatLabel}
-                                  </Button>
-                                </>
-                              )}
-                            </div>
+                  <div className="flex flex-col gap-2">
+                    {bulkItems.map((item) => (
+                      <div key={item.id} className="flex items-center gap-2 p-3 rounded-lg border border-border bg-card">
+                        {/* Format badge */}
+                        <Badge variant="outline" className="text-xs shrink-0">{bulkPrimaryFormat}</Badge>
+                        {/* File name truncated */}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate max-w-[180px]">{item.primaryFile.name}</p>
+                          <p className="text-xs text-muted-foreground">{(item.primaryFile.size / (1024 * 1024)).toFixed(1)} MB</p>
+                        </div>
+                        {/* Remove button */}
+                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0 shrink-0" onClick={() => removeBulkItem(item.id)}>
+                          <X className="h-3 w-3" />
+                        </Button>
+                        {/* Stories button */}
+                        {item.secondaryFile ? (
+                          <div className="flex items-center gap-1 ml-1 px-2 py-1 rounded bg-primary/10">
+                            <Badge variant="secondary" className="text-xs shrink-0">{secondaryFormatLabel}</Badge>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-5 w-5 p-0 shrink-0"
+                              onClick={() => handleBulkSecondaryFile(item.id, null)}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
                           </div>
-                        </CardContent>
-                      </Card>
+                        ) : (
+                          <>
+                            <input
+                              type="file"
+                              id={`secondary-${item.id}`}
+                              className="hidden"
+                              accept={getAcceptedFileTypes()}
+                              onChange={(e) => {
+                                const f = e.target.files?.[0];
+                                if (f) handleBulkSecondaryFile(item.id, f);
+                              }}
+                            />
+                            <Button
+                              size="sm"
+                              className="text-xs h-7 bg-primary text-primary-foreground hover:bg-primary/90 shrink-0"
+                              onClick={() => document.getElementById(`secondary-${item.id}`)?.click()}
+                            >
+                              <Plus className="h-3 w-3 mr-1" />
+                              {secondaryFormatLabel}
+                            </Button>
+                          </>
+                        )}
+                      </div>
                     ))}
                   </div>
                 </div>

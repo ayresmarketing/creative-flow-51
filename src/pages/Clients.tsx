@@ -4,6 +4,7 @@ import Layout from "@/components/Layout";
 import CreateClientDialog from "@/components/CreateClientDialog";
 import ResetPasswordDialog from "@/components/ResetPasswordDialog";
 import EmbedReportDialog from "@/components/EmbedReportDialog";
+import AddTeamMemberDialog from "@/components/AddTeamMemberDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -26,7 +27,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, Users, Mail, FolderOpen, Search, MoreVertical, Trash2, Ban, RotateCcw, KeyRound, Code2 } from "lucide-react";
+import { Plus, Users, Mail, FolderOpen, Search, MoreVertical, Trash2, Ban, RotateCcw, KeyRound, Code2, UserPlus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 
@@ -51,6 +52,7 @@ const Clients = () => {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [resetClient, setResetClient] = useState<{ userId: string; name: string } | null>(null);
   const [embedClient, setEmbedClient] = useState<{ id: string; name: string; reportHtml?: string | null } | null>(null);
+  const [teamMemberClient, setTeamMemberClient] = useState<{ id: string; name: string } | null>(null);
 
   const fetchClients = useCallback(async () => {
     const { data } = await supabase
@@ -118,6 +120,15 @@ const Clients = () => {
           clientName={embedClient.name}
           currentHtml={embedClient.reportHtml}
           onUpdated={fetchClients}
+        />
+      )}
+      {teamMemberClient && (
+        <AddTeamMemberDialog
+          open={!!teamMemberClient}
+          onOpenChange={(open) => { if (!open) setTeamMemberClient(null); }}
+          clientId={teamMemberClient.id}
+          clientName={teamMemberClient.name}
+          onAdded={fetchClients}
         />
       )}
 
@@ -191,6 +202,12 @@ const Clients = () => {
                           Resetar senha
                         </DropdownMenuItem>
                       )}
+                      <DropdownMenuItem
+                        onClick={() => setTeamMemberClient({ id: client.id, name: client.name })}
+                      >
+                        <UserPlus className="h-4 w-4 mr-2" />
+                        Adicionar membro
+                      </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={() => setEmbedClient({ id: client.id, name: client.name, reportHtml: client.report_html })}
                       >
