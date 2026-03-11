@@ -4,6 +4,7 @@ import Layout from "@/components/Layout";
 import CreateClientDialog from "@/components/CreateClientDialog";
 import ResetPasswordDialog from "@/components/ResetPasswordDialog";
 import EmbedReportDialog from "@/components/EmbedReportDialog";
+import AddTeamMemberDialog from "@/components/AddTeamMemberDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
