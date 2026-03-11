@@ -52,15 +52,16 @@ const AddTeamMemberDialog = ({ open, onOpenChange, clientId, clientName, onAdded
 
     setSaving(true);
     try {
+      const password = generatePassword();
+
       // Create a new auth user with cliente role
       const response = await supabase.functions.invoke("create-user", {
-        body: { name: name.trim(), email: email.trim(), password: null, role: "cliente" },
+        body: { name: name.trim(), email: email.trim(), password, role: "cliente" },
       });
 
       if (response.error) throw new Error(response.error.message);
 
       const userId = response.data.user_id;
-      const password = response.data.generated_password;
 
       // Link this user to the client via team members table
       await (supabase as any).from("client_team_members").insert({
@@ -69,8 +70,6 @@ const AddTeamMemberDialog = ({ open, onOpenChange, clientId, clientName, onAdded
         user_id: userId,
       });
 
-      // Also create a clients record linking this user to the same client data
-      // by updating the team member's association
       setGeneratedPassword(password);
       toast({ title: "Membro adicionado com sucesso!" });
       onAdded?.();
