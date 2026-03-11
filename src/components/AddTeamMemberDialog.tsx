@@ -20,12 +20,6 @@ function generatePassword(length = 12): string {
   crypto.getRandomValues(array);
   return Array.from(array, (byte) => chars[byte % chars.length]).join("");
 }
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { UserPlus, Copy, Check } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
 
 interface AddTeamMemberDialogProps {
   open: boolean;
