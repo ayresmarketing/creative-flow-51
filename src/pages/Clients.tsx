@@ -203,6 +203,12 @@ const Clients = () => {
                         </DropdownMenuItem>
                       )}
                       <DropdownMenuItem
+                        onClick={() => setTeamMemberClient({ id: client.id, name: client.name })}
+                      >
+                        <UserPlus className="h-4 w-4 mr-2" />
+                        Adicionar membro
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
                         onClick={() => setEmbedClient({ id: client.id, name: client.name, reportHtml: client.report_html })}
                       >
                         <Code2 className="h-4 w-4 mr-2" />
