@@ -70,14 +70,26 @@ const CreativeUpload = () => {
     if (!creativeType || !objective || !id) return "";
     const typePrefix = creativeType === "PHOTO" ? "ADF" : creativeType === "VIDEO" ? "ADV" : "ADC";
 
-    const { count } = await supabase
+    // Get the highest existing number from codes to continue sequentially
+    const { data: existingCreatives } = await supabase
       .from("creatives")
-      .select("id", { count: "exact", head: true })
+      .select("code")
       .eq("product_id", id)
       .eq("objective", objective)
       .eq("type", creativeType);
 
-    const nextNum = (count || 0) + 1 + offset;
+    let maxNum = 0;
+    if (existingCreatives && existingCreatives.length > 0) {
+      for (const cr of existingCreatives) {
+        const match = cr.code.match(/(?:ADF|ADV|ADC)(\d+)$/);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (num > maxNum) maxNum = num;
+        }
+      }
+    }
+
+    const nextNum = maxNum + 1 + offset;
     return `${productAcronym} | ${objective} | ${typePrefix}${nextNum.toString().padStart(3, "0")}`;
   }, [creativeType, objective, id, productAcronym]);
 
