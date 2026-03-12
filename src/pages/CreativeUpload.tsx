@@ -66,40 +66,53 @@ const CreativeUpload = () => {
       });
   }, [id]);
 
-  const generateCode = useCallback(async (offset = 0) => {
-    if (!creativeType || !objective || !id) return "";
-    const typePrefix = creativeType === "PHOTO" ? "ADF" : creativeType === "VIDEO" ? "ADV" : "ADC";
+  const getTypePrefix = useCallback(() => {
+    if (creativeType === "PHOTO") return "ADF";
+    if (creativeType === "VIDEO") return "ADV";
+    if (creativeType === "CAROUSEL") return "ADC";
+    return "";
+  }, [creativeType]);
 
-    // Get the highest existing number from codes to continue sequentially
-    const { data: existingCreatives } = await supabase
+  const getCurrentMaxSequence = useCallback(async () => {
+    if (!creativeType || !objective || !id) return 0;
+
+    const { data: existingCreatives, error } = await supabase
       .from("creatives")
       .select("code")
       .eq("product_id", id)
       .eq("objective", objective)
       .eq("type", creativeType);
 
-    let maxNum = 0;
-    if (existingCreatives && existingCreatives.length > 0) {
-      for (const cr of existingCreatives) {
-        const match = cr.code.match(/(?:ADF|ADV|ADC)(\d+)$/);
-        if (match) {
-          const num = parseInt(match[1], 10);
-          if (num > maxNum) maxNum = num;
-        }
-      }
-    }
+    if (error || !existingCreatives?.length) return 0;
 
-    const nextNum = maxNum + 1 + offset;
-    return `${productAcronym} | ${objective} | ${typePrefix}${nextNum.toString().padStart(3, "0")}`;
-  }, [creativeType, objective, id, productAcronym]);
+    const typePrefix = getTypePrefix();
+    const sequenceRegex = new RegExp(`${typePrefix}(\\d+)$`);
+
+    return existingCreatives.reduce((max, creative) => {
+      const match = creative.code?.match(sequenceRegex);
+      if (!match) return max;
+
+      const parsed = Number.parseInt(match[1], 10);
+      return Number.isNaN(parsed) ? max : Math.max(max, parsed);
+    }, 0);
+  }, [creativeType, objective, id, getTypePrefix]);
+
+  const buildCreativeCode = useCallback((sequence: number) => {
+    const typePrefix = getTypePrefix();
+    if (!typePrefix || !objective) return "";
+
+    return `${productAcronym} | ${objective} | ${typePrefix}${sequence.toString().padStart(3, "0")}`;
+  }, [getTypePrefix, objective, productAcronym]);
 
   const [generatedCode, setGeneratedCode] = useState("");
 
   useEffect(() => {
-    if (step === 5 && creativeType && objective && !bulkMode) {
-      generateCode().then(setGeneratedCode);
-    }
-  }, [step, generateCode, creativeType, objective, bulkMode]);
+    if (step !== 5 || !creativeType || !objective || bulkMode) return;
+
+    getCurrentMaxSequence().then((maxSequence) => {
+      setGeneratedCode(buildCreativeCode(maxSequence + 1));
+    });
+  }, [step, creativeType, objective, bulkMode, getCurrentMaxSequence, buildCreativeCode]);
 
   const getAcceptedFileTypes = () => {
     switch (creativeType) {
@@ -192,11 +205,15 @@ const CreativeUpload = () => {
     setSubmitting(true);
 
     try {
+      const currentMaxSequence = await getCurrentMaxSequence();
+
       if (bulkMode) {
         // Bulk submit - create one creative per item
         for (let i = 0; i < bulkItems.length; i++) {
           const item = bulkItems[i];
-          const code = await generateCode(i);
+          const code = buildCreativeCode(currentMaxSequence + i + 1);
+          if (!code) throw new Error("Falha ao gerar código do criativo");
+
           const itemFormats: FormatType[] = [bulkPrimaryFormat as FormatType];
           if (item.secondaryFile) {
             const secondaryFormat = bulkPrimaryFormat === "Feed" ? "Stories" : "Feed";
@@ -212,7 +229,9 @@ const CreativeUpload = () => {
             notes: notes || null,
           }).select("id").single();
 
-          if (crErr || !creative) continue;
+          if (crErr || !creative) {
+            throw crErr ?? new Error("Falha ao criar criativo no lote");
+          }
 
           // Upload primary file
           const primaryPath = `${id}/${creative.id}/${bulkPrimaryFormat}/${Date.now()}_${item.primaryFile.name}`;
@@ -270,7 +289,8 @@ const CreativeUpload = () => {
       }
 
       // Single submit (existing logic)
-      const code = generatedCode || await generateCode();
+      const code = generatedCode || buildCreativeCode(currentMaxSequence + 1);
+      if (!code) throw new Error("Falha ao gerar código do criativo");
 
       const { data: creative, error: crErr } = await supabase.from("creatives").insert({
         code,
@@ -613,7 +633,9 @@ const CreativeUpload = () => {
                         <Badge variant="outline" className="text-xs shrink-0">{bulkPrimaryFormat}</Badge>
                         {/* File name truncated */}
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate max-w-[180px]">{item.primaryFile.name}</p>
+                          <p className="text-sm font-medium">
+                            {item.primaryFile.name.slice(0, 22)}{item.primaryFile.name.length > 22 ? "..." : ""}
+                          </p>
                           <p className="text-xs text-muted-foreground">{(item.primaryFile.size / (1024 * 1024)).toFixed(1)} MB</p>
                         </div>
                         {/* Remove button */}
@@ -647,11 +669,12 @@ const CreativeUpload = () => {
                             />
                             <Button
                               size="sm"
-                              className="text-xs h-7 bg-primary text-primary-foreground hover:bg-primary/90 shrink-0"
+                              variant="default"
+                              className="text-xs h-7 shrink-0"
                               onClick={() => document.getElementById(`secondary-${item.id}`)?.click()}
                             >
                               <Plus className="h-3 w-3 mr-1" />
-                              {secondaryFormatLabel}
+                              + {secondaryFormatLabel}
                             </Button>
                           </>
                         )}
