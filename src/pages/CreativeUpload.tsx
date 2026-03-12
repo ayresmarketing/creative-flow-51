@@ -633,7 +633,9 @@ const CreativeUpload = () => {
                         <Badge variant="outline" className="text-xs shrink-0">{bulkPrimaryFormat}</Badge>
                         {/* File name truncated */}
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate max-w-[180px]">{item.primaryFile.name}</p>
+                          <p className="text-sm font-medium">
+                            {item.primaryFile.name.slice(0, 22)}{item.primaryFile.name.length > 22 ? "..." : ""}
+                          </p>
                           <p className="text-xs text-muted-foreground">{(item.primaryFile.size / (1024 * 1024)).toFixed(1)} MB</p>
                         </div>
                         {/* Remove button */}
@@ -667,11 +669,12 @@ const CreativeUpload = () => {
                             />
                             <Button
                               size="sm"
-                              className="text-xs h-7 bg-primary text-primary-foreground hover:bg-primary/90 shrink-0"
+                              variant="default"
+                              className="text-xs h-7 shrink-0"
                               onClick={() => document.getElementById(`secondary-${item.id}`)?.click()}
                             >
                               <Plus className="h-3 w-3 mr-1" />
-                              {secondaryFormatLabel}
+                              + {secondaryFormatLabel}
                             </Button>
                           </>
                         )}
