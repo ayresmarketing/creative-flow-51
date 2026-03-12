@@ -66,40 +66,53 @@ const CreativeUpload = () => {
       });
   }, [id]);
 
-  const generateCode = useCallback(async (offset = 0) => {
-    if (!creativeType || !objective || !id) return "";
-    const typePrefix = creativeType === "PHOTO" ? "ADF" : creativeType === "VIDEO" ? "ADV" : "ADC";
+  const getTypePrefix = useCallback(() => {
+    if (creativeType === "PHOTO") return "ADF";
+    if (creativeType === "VIDEO") return "ADV";
+    if (creativeType === "CAROUSEL") return "ADC";
+    return "";
+  }, [creativeType]);
 
-    // Get the highest existing number from codes to continue sequentially
-    const { data: existingCreatives } = await supabase
+  const getCurrentMaxSequence = useCallback(async () => {
+    if (!creativeType || !objective || !id) return 0;
+
+    const { data: existingCreatives, error } = await supabase
       .from("creatives")
       .select("code")
       .eq("product_id", id)
       .eq("objective", objective)
       .eq("type", creativeType);
 
-    let maxNum = 0;
-    if (existingCreatives && existingCreatives.length > 0) {
-      for (const cr of existingCreatives) {
-        const match = cr.code.match(/(?:ADF|ADV|ADC)(\d+)$/);
-        if (match) {
-          const num = parseInt(match[1], 10);
-          if (num > maxNum) maxNum = num;
-        }
-      }
-    }
+    if (error || !existingCreatives?.length) return 0;
 
-    const nextNum = maxNum + 1 + offset;
-    return `${productAcronym} | ${objective} | ${typePrefix}${nextNum.toString().padStart(3, "0")}`;
-  }, [creativeType, objective, id, productAcronym]);
+    const typePrefix = getTypePrefix();
+    const sequenceRegex = new RegExp(`${typePrefix}(\\d+)$`);
+
+    return existingCreatives.reduce((max, creative) => {
+      const match = creative.code?.match(sequenceRegex);
+      if (!match) return max;
+
+      const parsed = Number.parseInt(match[1], 10);
+      return Number.isNaN(parsed) ? max : Math.max(max, parsed);
+    }, 0);
+  }, [creativeType, objective, id, getTypePrefix]);
+
+  const buildCreativeCode = useCallback((sequence: number) => {
+    const typePrefix = getTypePrefix();
+    if (!typePrefix || !objective) return "";
+
+    return `${productAcronym} | ${objective} | ${typePrefix}${sequence.toString().padStart(3, "0")}`;
+  }, [getTypePrefix, objective, productAcronym]);
 
   const [generatedCode, setGeneratedCode] = useState("");
 
   useEffect(() => {
-    if (step === 5 && creativeType && objective && !bulkMode) {
-      generateCode().then(setGeneratedCode);
-    }
-  }, [step, generateCode, creativeType, objective, bulkMode]);
+    if (step !== 5 || !creativeType || !objective || bulkMode) return;
+
+    getCurrentMaxSequence().then((maxSequence) => {
+      setGeneratedCode(buildCreativeCode(maxSequence + 1));
+    });
+  }, [step, creativeType, objective, bulkMode, getCurrentMaxSequence, buildCreativeCode]);
 
   const getAcceptedFileTypes = () => {
     switch (creativeType) {
