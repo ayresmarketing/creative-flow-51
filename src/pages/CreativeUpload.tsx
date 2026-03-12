@@ -205,11 +205,15 @@ const CreativeUpload = () => {
     setSubmitting(true);
 
     try {
+      const currentMaxSequence = await getCurrentMaxSequence();
+
       if (bulkMode) {
         // Bulk submit - create one creative per item
         for (let i = 0; i < bulkItems.length; i++) {
           const item = bulkItems[i];
-          const code = await generateCode(i);
+          const code = buildCreativeCode(currentMaxSequence + i + 1);
+          if (!code) throw new Error("Falha ao gerar código do criativo");
+
           const itemFormats: FormatType[] = [bulkPrimaryFormat as FormatType];
           if (item.secondaryFile) {
             const secondaryFormat = bulkPrimaryFormat === "Feed" ? "Stories" : "Feed";
@@ -225,7 +229,9 @@ const CreativeUpload = () => {
             notes: notes || null,
           }).select("id").single();
 
-          if (crErr || !creative) continue;
+          if (crErr || !creative) {
+            throw crErr ?? new Error("Falha ao criar criativo no lote");
+          }
 
           // Upload primary file
           const primaryPath = `${id}/${creative.id}/${bulkPrimaryFormat}/${Date.now()}_${item.primaryFile.name}`;
@@ -283,7 +289,8 @@ const CreativeUpload = () => {
       }
 
       // Single submit (existing logic)
-      const code = generatedCode || await generateCode();
+      const code = generatedCode || buildCreativeCode(currentMaxSequence + 1);
+      if (!code) throw new Error("Falha ao gerar código do criativo");
 
       const { data: creative, error: crErr } = await supabase.from("creatives").insert({
         code,
