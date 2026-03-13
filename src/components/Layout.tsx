@@ -17,8 +17,10 @@ import {
   Layers,
   Menu,
   X,
-  BarChart3
+  BarChart3,
+  UserPlus
 } from "lucide-react";
+import AddTeamMemberDialog from "@/components/AddTeamMemberDialog";
 
 interface LayoutProps {
   children: ReactNode;
@@ -30,6 +32,7 @@ const Layout = ({ children }: LayoutProps) => {
   const { user, logout } = useAuth();
   const [clientLogoUrl, setClientLogoUrl] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [teamDialogOpen, setTeamDialogOpen] = useState(false);
 
   useEffect(() => {
     if (user?.role === "CLIENTE" && user.clientId) {
@@ -127,6 +130,21 @@ const Layout = ({ children }: LayoutProps) => {
             </Button>
           );
         })}
+
+        {/* Team section for clients */}
+        {user?.role === "CLIENTE" && user.clientId && (
+          <div className="px-4 pt-2 pb-1 space-y-1 border-t border-border mt-2">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-3 py-1">Equipe</p>
+            <Button
+              variant="ghost"
+              className="w-full justify-start gap-3"
+              onClick={() => setTeamDialogOpen(true)}
+            >
+              <UserPlus className="h-5 w-5" />
+              Adicionar Equipe
+            </Button>
+          </div>
+        )}
       </nav>
 
       {/* Logout */}
@@ -186,6 +204,16 @@ const Layout = ({ children }: LayoutProps) => {
           {children}
         </main>
       </div>
+
+      {/* Team member dialog for clients */}
+      {user?.role === "CLIENTE" && user.clientId && (
+        <AddTeamMemberDialog
+          open={teamDialogOpen}
+          onOpenChange={setTeamDialogOpen}
+          clientId={user.clientId}
+          clientName={user.name}
+        />
+      )}
     </div>
   );
 };

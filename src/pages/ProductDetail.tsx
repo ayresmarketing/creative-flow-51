@@ -570,10 +570,12 @@ const ProductDetail = () => {
                         )}
                         {/* Dropdown on hover */}
                         <div
-                          className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="absolute top-1 right-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity"
                           onClick={(e) => e.stopPropagation()}
                         >
-                          <CreativeDropdownMenu creative={creative} />
+                          <div className="bg-white rounded-full shadow-md">
+                            <CreativeDropdownMenu creative={creative} />
+                          </div>
                         </div>
                       </div>
 
@@ -640,7 +642,7 @@ const ProductDetail = () => {
           </TabsContent>
 
           <TabsContent value="briefing" className="mt-4">
-            <BriefingDisplay responses={briefingData} category={product.category} />
+            <BriefingDisplay responses={briefingData} category={product.category} productName={product.name} />
           </TabsContent>
 
           <TabsContent value="conteudos" className="mt-4">

@@ -1,35 +1,48 @@
 
 
-# Plan: Fix Reset Password, Validate Edge Functions & Creative Numbering
+## Correcao dos dois bugs
 
-## Problem Analysis
+### Bug 1: Produto nao e criado apos preencher formulario
 
-After investigation, here are the root causes:
+**Problema**: O `CreateProductDialog` apenas faz `console.log` quando o usuario clica em "Criar Produto". Nao insere nada no banco de dados e nao atualiza a lista.
 
-### 1. Reset Password Not Working
-The edge function itself **works correctly** — I deployed and tested it. The real issue is that **all 4 existing clients have `user_id: null`** in the database. They were created directly in the `clients` table without going through the `create-user` edge function, meaning they have **no auth accounts**. The "Resetar senha" button in the UI is conditional on `client.user_id` existing, so it never shows for these clients.
+**Solucao**:
+- Atualizar `CreateProductDialog` para receber uma prop `clientId` (para saber a qual cliente o produto pertence) e uma callback `onCreated`
+- Ao clicar em "Criar Produto", inserir o registro na tabela `products` do banco de dados com `name`, `acronym`, `category` e `client_id`
+- Apos a insercao, chamar `onCreated()` para atualizar a lista de produtos
+- Para o caso "Infoproduto" (que abre Google Form), adicionar um botao "Concluir" apos o formulario para tambem salvar o produto
+- Atualizar o `Dashboard` para buscar produtos do banco de dados em vez de usar dados mock
 
-**Root cause**: The `CreateClientDialog` calls `addClient()` from `AuthContext`, which invokes the `create-user` edge function. This function creates an auth user and a client record with `user_id` linked. But the existing 4 clients were either created before this flow existed or created manually.
+### Bug 2: Erro 404 ao clicar em cliente (gestor)
 
-**Fix**: No code change needed — the flow is correct. The existing clients without auth accounts need to be cleaned up (they're test data). New clients created via the dialog will work correctly. I'll verify by testing the `create-user` function end-to-end.
+**Problema**: A pagina `Clients.tsx` navega para `/clients/:clientId`, mas essa rota nao existe no `App.tsx`. So existem rotas para `/clients` (lista).
 
-### 2. Creative Numbering
-The bulk upload logic (lines 208-214 of `CreativeUpload.tsx`) looks correct now:
-- Calls `getCurrentMaxSequence()` once before the loop
-- Increments sequentially: `currentMaxSequence + i + 1`
-- Feed+Stories counts as 1 unit
+**Solucao**:
+- Criar uma nova pagina `ClientProducts.tsx` que exibe os produtos de um cliente especifico
+- Essa pagina recebe o `clientId` da URL, busca os produtos daquele cliente no banco de dados e exibe em cards (reutilizando o mesmo layout do Dashboard)
+- O gestor pode criar novos produtos para aquele cliente a partir dessa pagina
+- Adicionar a rota `/clients/:clientId` no `App.tsx` apontando para `ClientProducts`
 
-The existing gaps in data (ADF001, ADF003, ADF006) are from previous buggy code. Current code should be correct. I'll verify with a test.
+---
 
-## Implementation Steps
+### Detalhes tecnicos
 
-1. **Test `create-user` edge function** via curl to confirm it creates auth users properly
-2. **Test `reset-password` edge function** with a real user UUID
-3. **Clean up test client data** — the 4 test clients without auth accounts are orphaned
-4. If any edge function fails, fix and redeploy immediately
+**Arquivos modificados:**
+- `src/components/CreateProductDialog.tsx` -- adicionar props `clientId` e `onCreated`, inserir no banco via `supabase.from("products").insert(...)`
+- `src/pages/Dashboard.tsx` -- buscar produtos reais do banco (filtrados por `client_id` do usuario logado se for CLIENTE)
+- `src/pages/ClientProducts.tsx` (novo) -- pagina para gestor ver produtos de um cliente especifico
+- `src/App.tsx` -- adicionar rota `/clients/:clientId`
 
-## What I'll Verify
-- Creating a client via the edge function produces an auth user + client record with `user_id`
-- Resetting that user's password works
-- Bulk creative upload generates sequential numbers without gaps
+**Fluxo corrigido do produto:**
+1. Cliente ou gestor clica em "Novo Produto"
+2. Preenche nome + sigla (min 3 chars), clica "Proximo"
+3. Seleciona categoria
+4. Se nao for Infoproduto: clica "Criar Produto" -> insere no banco -> fecha dialog -> atualiza lista
+5. Se for Infoproduto: abre Google Form -> ao fechar o form, produto e salvo -> atualiza lista
+
+**Fluxo corrigido do gestor -> cliente:**
+1. Gestor clica em um card de cliente na pagina `/clients`
+2. Navega para `/clients/:clientId`
+3. `ClientProducts` carrega e busca produtos daquele `client_id` no banco
+4. Exibe os produtos em cards, com opcao de criar novos produtos para aquele cliente
 

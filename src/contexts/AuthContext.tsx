@@ -49,7 +49,7 @@ async function fetchAppUser(authUser: User): Promise<AppUser | null> {
     .eq("user_id", authUser.id)
     .single();
 
-  // If cliente, fetch client record
+  // If cliente, fetch client record (own or via team membership)
   let clientId: string | undefined;
   if (role === "CLIENTE") {
     const { data: client } = await supabase
@@ -57,7 +57,18 @@ async function fetchAppUser(authUser: User): Promise<AppUser | null> {
       .select("id")
       .eq("user_id", authUser.id)
       .single();
-    clientId = client?.id;
+    if (client) {
+      clientId = client.id;
+    } else {
+      // Check team membership
+      const { data: teamMember } = await supabase
+        .from("client_team_members")
+        .select("client_id")
+        .eq("user_id", authUser.id)
+        .limit(1)
+        .single();
+      clientId = teamMember?.client_id;
+    }
   }
 
   return {

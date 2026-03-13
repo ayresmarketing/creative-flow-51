@@ -146,17 +146,30 @@ const ContentDialog = ({ open, onOpenChange, editingContent }: ContentDialogProp
 
         <div className="space-y-4">
           <div>
-            <Label>Título</Label>
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Nome do conteúdo" />
-          </div>
-
-          <div>
             <Label>Link do YouTube</Label>
             <Input
               value={youtubeUrl}
-              onChange={(e) => setYoutubeUrl(e.target.value)}
+              onChange={async (e) => {
+                const url = e.target.value;
+                setYoutubeUrl(url);
+                // Auto-fetch title & description from YouTube oEmbed
+                if (!editingContent && url.includes("youtube.com/watch") || url.includes("youtu.be/")) {
+                  try {
+                    const res = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`);
+                    if (res.ok) {
+                      const data = await res.json();
+                      if (data.title && !title) setTitle(data.title);
+                    }
+                  } catch { /* ignore */ }
+                }
+              }}
               placeholder="https://www.youtube.com/watch?v=..."
             />
+          </div>
+
+          <div>
+            <Label>Título</Label>
+            <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Nome do conteúdo" />
           </div>
 
           <div>
