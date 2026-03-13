@@ -642,7 +642,7 @@ const ProductDetail = () => {
           </TabsContent>
 
           <TabsContent value="briefing" className="mt-4">
-            <BriefingDisplay responses={briefingData} category={product.category} />
+            <BriefingDisplay responses={briefingData} category={product.category} productName={product.name} />
           </TabsContent>
 
           <TabsContent value="conteudos" className="mt-4">

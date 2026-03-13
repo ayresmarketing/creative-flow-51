@@ -204,6 +204,16 @@ const Layout = ({ children }: LayoutProps) => {
           {children}
         </main>
       </div>
+
+      {/* Team member dialog for clients */}
+      {user?.role === "CLIENTE" && user.clientId && (
+        <AddTeamMemberDialog
+          open={teamDialogOpen}
+          onOpenChange={setTeamDialogOpen}
+          clientId={user.clientId}
+          clientName={user.name}
+        />
+      )}
     </div>
   );
 };
