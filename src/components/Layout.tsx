@@ -130,6 +130,21 @@ const Layout = ({ children }: LayoutProps) => {
             </Button>
           );
         })}
+
+        {/* Team section for clients */}
+        {user?.role === "CLIENTE" && user.clientId && (
+          <div className="px-4 pt-2 pb-1 space-y-1 border-t border-border mt-2">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-3 py-1">Equipe</p>
+            <Button
+              variant="ghost"
+              className="w-full justify-start gap-3"
+              onClick={() => setTeamDialogOpen(true)}
+            >
+              <UserPlus className="h-5 w-5" />
+              Adicionar Equipe
+            </Button>
+          </div>
+        )}
       </nav>
 
       {/* Logout */}
