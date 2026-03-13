@@ -17,8 +17,10 @@ import {
   Layers,
   Menu,
   X,
-  BarChart3
+  BarChart3,
+  UserPlus
 } from "lucide-react";
+import AddTeamMemberDialog from "@/components/AddTeamMemberDialog";
 
 interface LayoutProps {
   children: ReactNode;
@@ -30,6 +32,7 @@ const Layout = ({ children }: LayoutProps) => {
   const { user, logout } = useAuth();
   const [clientLogoUrl, setClientLogoUrl] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [teamDialogOpen, setTeamDialogOpen] = useState(false);
 
   useEffect(() => {
     if (user?.role === "CLIENTE" && user.clientId) {
