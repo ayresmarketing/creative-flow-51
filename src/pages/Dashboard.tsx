@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import Layout from "@/components/Layout";
 import CreateProductDialog from "@/components/CreateProductDialog";
 import { supabase } from "@/integrations/supabase/client";
+import ayresLogo from "@/assets/ayres-logo.png";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";

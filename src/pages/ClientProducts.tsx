@@ -15,6 +15,7 @@ import {
   Layers,
   Clock,
   ArrowLeft,
+  BarChart3,
 } from "lucide-react";
 
 interface Product {
