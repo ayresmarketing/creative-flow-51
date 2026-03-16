@@ -70,9 +70,12 @@ const Dashboard = () => {
       <div className="p-4 md:p-8 space-y-6 md:space-y-8">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Produtos</h1>
-            <p className="text-muted-foreground mt-1">Gerencie seus produtos e criativos</p>
+          <div className="flex items-center gap-4">
+            <img src={ayresLogo} alt="Ayres Marketing" className="w-10 h-10 rounded-lg object-contain hidden md:block" />
+            <div>
+              <h1 className="text-3xl font-bold text-foreground">Produtos</h1>
+              <p className="text-muted-foreground mt-1">Gerencie seus produtos e criativos</p>
+            </div>
           </div>
           {user?.role === "CLIENTE" && (
             <Button onClick={() => setCreateOpen(true)} className="hub-shadow gap-2">
