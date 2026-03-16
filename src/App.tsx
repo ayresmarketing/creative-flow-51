@@ -35,6 +35,7 @@ const App = () => (
             <Route path="/products/:id/upload" element={<CreativeUpload />} />
             <Route path="/clients" element={<Clients />} />
             <Route path="/clients/:clientId" element={<ClientProducts />} />
+            <Route path="/clients/:clientId/report" element={<GestorClientReport />} />
             <Route path="/gestores" element={<Gestores />} />
             <Route path="/conteudos" element={<Contents />} />
             <Route path="/swipe-files" element={<SwipeFiles />} />
