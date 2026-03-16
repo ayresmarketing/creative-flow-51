@@ -236,11 +236,11 @@ const ProductDetail = () => {
   const hasBothFormats = (creative: Creative) =>
     creative.formats.includes("Feed") && creative.formats.includes("Stories");
 
-  const CreativeDropdownMenu = ({ creative }: { creative: Creative }) => (
+  const CreativeDropdownMenu = ({ creative, overlay }: { creative: Creative; overlay?: boolean }) => (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="sm" className="h-6 w-6 p-0 shrink-0">
-          <MoreVertical className="h-3.5 w-3.5" />
+        <Button variant="ghost" size="sm" className={`h-7 w-7 p-0 shrink-0 ${overlay ? "bg-white text-foreground hover:bg-white/90 rounded-full shadow-md" : ""}`}>
+          <MoreVertical className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
@@ -568,14 +568,12 @@ const ProductDetail = () => {
                             {creative.type === "VIDEO" ? <Play className="h-5 w-5" /> : getTypeIcon(creative.type)}
                           </span>
                         )}
-                        {/* Dropdown on hover */}
+                        {/* Dropdown always visible */}
                         <div
-                          className="absolute top-1 right-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="absolute top-1.5 right-1.5 z-20"
                           onClick={(e) => e.stopPropagation()}
                         >
-                          <div className="bg-white rounded-full shadow-md">
-                            <CreativeDropdownMenu creative={creative} />
-                          </div>
+                          <CreativeDropdownMenu creative={creative} overlay />
                         </div>
                       </div>
 

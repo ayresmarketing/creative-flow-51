@@ -15,6 +15,7 @@ import {
   Layers,
   Clock,
   ArrowLeft,
+  BarChart3,
 } from "lucide-react";
 
 interface Product {
@@ -83,6 +84,10 @@ const ClientProducts = () => {
             <div>
               <h1 className="text-2xl md:text-3xl font-bold text-foreground">{clientName || "Cliente"}</h1>
               <p className="text-muted-foreground mt-1 text-sm">Produtos deste cliente</p>
+              <Button variant="outline" size="sm" className="mt-2 gap-2" onClick={() => navigate(`/clients/${clientId}/report`)}>
+                <BarChart3 className="h-4 w-4" />
+                Ver Relatório
+              </Button>
             </div>
           </div>
           <Button onClick={() => setCreateOpen(true)} className="hub-shadow gap-2 self-start sm:self-auto">

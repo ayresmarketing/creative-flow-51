@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import Layout from "@/components/Layout";
 import CreateProductDialog from "@/components/CreateProductDialog";
 import { supabase } from "@/integrations/supabase/client";
+import ayresLogo from "@/assets/ayres-logo.png";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -70,9 +71,12 @@ const Dashboard = () => {
       <div className="p-4 md:p-8 space-y-6 md:space-y-8">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Produtos</h1>
-            <p className="text-muted-foreground mt-1">Gerencie seus produtos e criativos</p>
+          <div className="flex items-center gap-4">
+            <img src={ayresLogo} alt="Ayres Marketing" className="w-10 h-10 rounded-lg object-contain hidden md:block" />
+            <div>
+              <h1 className="text-3xl font-bold text-foreground">Produtos</h1>
+              <p className="text-muted-foreground mt-1">Gerencie seus produtos e criativos</p>
+            </div>
           </div>
           {user?.role === "CLIENTE" && (
             <Button onClick={() => setCreateOpen(true)} className="hub-shadow gap-2">
