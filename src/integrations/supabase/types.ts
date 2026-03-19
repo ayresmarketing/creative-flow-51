@@ -185,47 +185,8 @@ export type Database = {
           },
         ]
       }
-      creative_revisions: {
-        Row: {
-          action: string
-          actor_id: string
-          actor_name: string | null
-          comment: string | null
-          created_at: string
-          creative_id: string
-          id: string
-        }
-        Insert: {
-          action: string
-          actor_id: string
-          actor_name?: string | null
-          comment?: string | null
-          created_at?: string
-          creative_id: string
-          id?: string
-        }
-        Update: {
-          action?: string
-          actor_id?: string
-          actor_name?: string | null
-          comment?: string | null
-          created_at?: string
-          creative_id?: string
-          id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "creative_revisions_creative_id_fkey"
-            columns: ["creative_id"]
-            isOneToOne: false
-            referencedRelation: "creatives"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       creatives: {
         Row: {
-          approval_status: string
           code: string
           created_at: string
           formats: string[]
@@ -233,13 +194,10 @@ export type Database = {
           notes: string | null
           objective: string
           product_id: string
-          rejection_reason: string | null
           status: string
           type: string
-          uploaded_by: string | null
         }
         Insert: {
-          approval_status?: string
           code: string
           created_at?: string
           formats?: string[]
@@ -247,13 +205,10 @@ export type Database = {
           notes?: string | null
           objective: string
           product_id: string
-          rejection_reason?: string | null
           status?: string
           type: string
-          uploaded_by?: string | null
         }
         Update: {
-          approval_status?: string
           code?: string
           created_at?: string
           formats?: string[]
@@ -261,10 +216,8 @@ export type Database = {
           notes?: string | null
           objective?: string
           product_id?: string
-          rejection_reason?: string | null
           status?: string
           type?: string
-          uploaded_by?: string | null
         }
         Relationships: [
           {
@@ -342,36 +295,6 @@ export type Database = {
           id?: string
           refresh_token?: string
           updated_at?: string
-        }
-        Relationships: []
-      }
-      notifications: {
-        Row: {
-          created_at: string
-          id: string
-          is_read: boolean
-          link: string | null
-          message: string | null
-          title: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          is_read?: boolean
-          link?: string | null
-          message?: string | null
-          title: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          is_read?: boolean
-          link?: string | null
-          message?: string | null
-          title?: string
-          user_id?: string
         }
         Relationships: []
       }
