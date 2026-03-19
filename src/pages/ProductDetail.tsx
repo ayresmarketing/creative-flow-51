@@ -771,6 +771,26 @@ const ProductDetail = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Timeline Modal */}
+      {timelineCreative && (
+        <CreativeTimelineModal
+          open={timelineOpen}
+          onOpenChange={setTimelineOpen}
+          creativeId={timelineCreative.id}
+          creativeCode={timelineCreative.code}
+        />
+      )}
+
+      {/* Rejection Dialog */}
+      {rejectionCreative && (
+        <RejectionReasonDialog
+          open={rejectionOpen}
+          onOpenChange={setRejectionOpen}
+          creativeCode={rejectionCreative.code}
+          onConfirm={(reason) => handleReject(rejectionCreative, reason)}
+        />
+      )}
     </Layout>
   );
 };
