@@ -376,6 +376,30 @@ const CreativeUpload = () => {
         console.warn("Drive upload failed (non-blocking):", driveErr);
       }
 
+      // Create revision entry and notify client if needs approval
+      if (isTeamMember && needsApproval && creative) {
+        await (supabase as any).from("creative_revisions").insert({
+          creative_id: creative.id,
+          action: "uploaded",
+          actor_id: user?.id,
+          actor_name: user?.name,
+          comment: "Criativo enviado para aprovação",
+        });
+        // Find client owner to notify
+        const { data: prodData } = await supabase.from("products").select("client_id").eq("id", id).single();
+        if (prodData) {
+          const { data: clientData } = await supabase.from("clients").select("user_id").eq("id", prodData.client_id).single();
+          if (clientData?.user_id) {
+            await (supabase as any).from("notifications").insert({
+              user_id: clientData.user_id,
+              title: "Novo criativo para aprovação 🔔",
+              message: `${code} foi enviado por ${user?.name}. Aguardando sua aprovação.`,
+              link: `/products/${id}`,
+            });
+          }
+        }
+      }
+
       toast({ title: "Criativo enviado com sucesso!" });
       navigate(`/products/${id}`);
     } catch (err: any) {
