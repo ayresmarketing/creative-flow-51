@@ -110,6 +110,7 @@ const Layout = ({ children }: LayoutProps) => {
               </Badge>
             </div>
           </div>
+          <NotificationBell />
         </div>
       </div>
 
