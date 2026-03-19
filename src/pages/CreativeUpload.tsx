@@ -858,6 +858,31 @@ const CreativeUpload = () => {
                     <p className="text-sm">{notes}</p>
                   </div>
                 )}
+                {isTeamMember && (
+                  <div className="border-t border-border pt-4">
+                    <Label className="text-sm font-semibold text-foreground">Este criativo pode ser subido no tráfego?</Label>
+                    <div className="flex gap-3 mt-2">
+                      <button
+                        onClick={() => setNeedsApproval(false)}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${
+                          !needsApproval ? "border-green-500 bg-green-50 text-green-700" : "border-border text-muted-foreground hover:bg-muted/50"
+                        }`}
+                      >
+                        <span className="h-3 w-3 rounded-full bg-green-500" />
+                        Sim, pode subir
+                      </button>
+                      <button
+                        onClick={() => setNeedsApproval(true)}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${
+                          needsApproval ? "border-amber-500 bg-amber-50 text-amber-700" : "border-border text-muted-foreground hover:bg-muted/50"
+                        }`}
+                      >
+                        <span className="h-3 w-3 rounded-full bg-amber-400" />
+                        Aguardar aprovação
+                      </button>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
