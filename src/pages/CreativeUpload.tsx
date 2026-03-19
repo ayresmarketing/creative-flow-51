@@ -318,6 +318,8 @@ const CreativeUpload = () => {
         formats,
         product_id: id,
         notes: notes || null,
+        uploaded_by: user?.id || null,
+        approval_status: isTeamMember && needsApproval ? "pending_approval" : "none",
       }).select("id").single();
 
       if (crErr || !creative) throw crErr;
