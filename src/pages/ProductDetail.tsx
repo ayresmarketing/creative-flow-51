@@ -31,6 +31,9 @@ import RoteiroList from "@/components/RoteiroList";
 import ProductNotes from "@/components/ProductNotes";
 import BriefingDisplay from "@/components/BriefingDisplay";
 import ProductContentsTab from "@/components/ProductContentsTab";
+import ApprovalStatusBadge from "@/components/ApprovalStatusBadge";
+import CreativeTimelineModal from "@/components/CreativeTimelineModal";
+import RejectionReasonDialog from "@/components/RejectionReasonDialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface Creative {
