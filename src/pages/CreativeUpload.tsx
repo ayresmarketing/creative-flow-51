@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import Layout from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,6 +31,10 @@ const CreativeUpload = () => {
   const [searchParams] = useSearchParams();
   const roteiroId = searchParams.get("roteiro_id");
   const { toast } = useToast();
+  const { user } = useAuth();
+
+  const [isTeamMember, setIsTeamMember] = useState(false);
+  const [needsApproval, setNeedsApproval] = useState(true);
 
   const [step, setStep] = useState(1);
   const [creativeType, setCreativeType] = useState<CreativeType | "">("");
@@ -65,6 +70,18 @@ const CreativeUpload = () => {
         }
       });
   }, [id]);
+
+  // Check if user is a team member
+  useEffect(() => {
+    if (!user) return;
+    (supabase as any).from("client_team_members")
+      .select("id")
+      .eq("user_id", user.id)
+      .limit(1)
+      .then(({ data }: { data: any[] | null }) => {
+        setIsTeamMember(!!(data && data.length > 0));
+      });
+  }, [user]);
 
   const getTypePrefix = useCallback(() => {
     if (creativeType === "PHOTO") return "ADF";
@@ -227,6 +244,8 @@ const CreativeUpload = () => {
             formats: itemFormats,
             product_id: id,
             notes: notes || null,
+            uploaded_by: user?.id || null,
+            approval_status: isTeamMember && needsApproval ? "pending_approval" : "none",
           }).select("id").single();
 
           if (crErr || !creative) {
@@ -299,6 +318,8 @@ const CreativeUpload = () => {
         formats,
         product_id: id,
         notes: notes || null,
+        uploaded_by: user?.id || null,
+        approval_status: isTeamMember && needsApproval ? "pending_approval" : "none",
       }).select("id").single();
 
       if (crErr || !creative) throw crErr;
@@ -353,6 +374,30 @@ const CreativeUpload = () => {
         }
       } catch (driveErr) {
         console.warn("Drive upload failed (non-blocking):", driveErr);
+      }
+
+      // Create revision entry and notify client if needs approval
+      if (isTeamMember && needsApproval && creative) {
+        await (supabase as any).from("creative_revisions").insert({
+          creative_id: creative.id,
+          action: "uploaded",
+          actor_id: user?.id,
+          actor_name: user?.name,
+          comment: "Criativo enviado para aprovação",
+        });
+        // Find client owner to notify
+        const { data: prodData } = await supabase.from("products").select("client_id").eq("id", id).single();
+        if (prodData) {
+          const { data: clientData } = await supabase.from("clients").select("user_id").eq("id", prodData.client_id).single();
+          if (clientData?.user_id) {
+            await (supabase as any).from("notifications").insert({
+              user_id: clientData.user_id,
+              title: "Novo criativo para aprovação 🔔",
+              message: `${code} foi enviado por ${user?.name}. Aguardando sua aprovação.`,
+              link: `/products/${id}`,
+            });
+          }
+        }
       }
 
       toast({ title: "Criativo enviado com sucesso!" });
@@ -811,6 +856,31 @@ const CreativeUpload = () => {
                   <div>
                     <Label className="text-sm font-medium text-muted-foreground">Observações</Label>
                     <p className="text-sm">{notes}</p>
+                  </div>
+                )}
+                {isTeamMember && (
+                  <div className="border-t border-border pt-4">
+                    <Label className="text-sm font-semibold text-foreground">Este criativo pode ser subido no tráfego?</Label>
+                    <div className="flex gap-3 mt-2">
+                      <button
+                        onClick={() => setNeedsApproval(false)}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${
+                          !needsApproval ? "border-green-500 bg-green-50 text-green-700" : "border-border text-muted-foreground hover:bg-muted/50"
+                        }`}
+                      >
+                        <span className="h-3 w-3 rounded-full bg-green-500" />
+                        Sim, pode subir
+                      </button>
+                      <button
+                        onClick={() => setNeedsApproval(true)}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${
+                          needsApproval ? "border-amber-500 bg-amber-50 text-amber-700" : "border-border text-muted-foreground hover:bg-muted/50"
+                        }`}
+                      >
+                        <span className="h-3 w-3 rounded-full bg-amber-400" />
+                        Aguardar aprovação
+                      </button>
+                    </div>
                   </div>
                 )}
               </CardContent>

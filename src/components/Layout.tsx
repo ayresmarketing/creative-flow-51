@@ -21,6 +21,7 @@ import {
   UserPlus
 } from "lucide-react";
 import AddTeamMemberDialog from "@/components/AddTeamMemberDialog";
+import NotificationBell from "@/components/NotificationBell";
 
 interface LayoutProps {
   children: ReactNode;
@@ -109,6 +110,7 @@ const Layout = ({ children }: LayoutProps) => {
               </Badge>
             </div>
           </div>
+          <NotificationBell />
         </div>
       </div>
 

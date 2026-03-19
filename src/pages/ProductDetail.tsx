@@ -31,6 +31,9 @@ import RoteiroList from "@/components/RoteiroList";
 import ProductNotes from "@/components/ProductNotes";
 import BriefingDisplay from "@/components/BriefingDisplay";
 import ProductContentsTab from "@/components/ProductContentsTab";
+import ApprovalStatusBadge from "@/components/ApprovalStatusBadge";
+import CreativeTimelineModal from "@/components/CreativeTimelineModal";
+import RejectionReasonDialog from "@/components/RejectionReasonDialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface Creative {
@@ -40,6 +43,9 @@ interface Creative {
   objective: string;
   formats: string[];
   status: string;
+  approval_status: string;
+  uploaded_by: string | null;
+  rejection_reason: string | null;
   created_at: string;
   notes: string | null;
   thumbnail_url?: string | null;
@@ -77,6 +83,57 @@ const ProductDetail = () => {
   // Delete dialog
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteCreativeId, setDeleteCreativeId] = useState<string | null>(null);
+
+  // Approval workflow
+  const [timelineOpen, setTimelineOpen] = useState(false);
+  const [timelineCreative, setTimelineCreative] = useState<Creative | null>(null);
+  const [rejectionOpen, setRejectionOpen] = useState(false);
+  const [rejectionCreative, setRejectionCreative] = useState<Creative | null>(null);
+
+  const isTeamMember = user?.role === "CLIENTE"; // clients and team members both see approval
+
+  const handleApprove = async (creative: Creative) => {
+    await supabase.from("creatives").update({ approval_status: "approved" }).eq("id", creative.id);
+    await (supabase as any).from("creative_revisions").insert({
+      creative_id: creative.id,
+      action: "approved",
+      actor_id: user?.id,
+      actor_name: user?.name,
+    });
+    // Notify uploader
+    if (creative.uploaded_by) {
+      await (supabase as any).from("notifications").insert({
+        user_id: creative.uploaded_by,
+        title: "Criativo aprovado ✅",
+        message: `${creative.code} foi aprovado.`,
+        link: `/products/${id}`,
+      });
+    }
+    setCreatives(prev => prev.map(c => c.id === creative.id ? { ...c, approval_status: "approved" } : c));
+    toast({ title: "Criativo aprovado!" });
+  };
+
+  const handleReject = async (creative: Creative, reason: string) => {
+    await supabase.from("creatives").update({ approval_status: "rejected", rejection_reason: reason }).eq("id", creative.id);
+    await (supabase as any).from("creative_revisions").insert({
+      creative_id: creative.id,
+      action: "rejected",
+      actor_id: user?.id,
+      actor_name: user?.name,
+      comment: reason,
+    });
+    // Notify uploader
+    if (creative.uploaded_by) {
+      await (supabase as any).from("notifications").insert({
+        user_id: creative.uploaded_by,
+        title: "Criativo rejeitado ❌",
+        message: `${creative.code}: ${reason}`,
+        link: `/products/${id}`,
+      });
+    }
+    setCreatives(prev => prev.map(c => c.id === creative.id ? { ...c, approval_status: "rejected", rejection_reason: reason } : c));
+    toast({ title: "Criativo rejeitado" });
+  };
 
   const objectiveCategories = ["Todos", "Vendas", "Conteúdo", "Lembrete", "Remarketing", "Captação", "Carrinho Aberto", "Outro"];
 
@@ -261,6 +318,26 @@ const ProductDetail = () => {
         <DropdownMenuItem onClick={() => handleDownload(creative)}>
           <Download className="h-4 w-4 mr-2" /> Baixar
         </DropdownMenuItem>
+        {/* Timeline */}
+        {creative.approval_status !== "none" && (
+          <DropdownMenuItem onClick={() => { setTimelineCreative(creative); setTimelineOpen(true); }}>
+            <Clock className="h-4 w-4 mr-2" /> Ver Linha do Tempo
+          </DropdownMenuItem>
+        )}
+        {/* Client approval actions */}
+        {user?.role === "CLIENTE" && creative.approval_status === "pending_approval" && (
+          <>
+            <DropdownMenuItem onClick={() => handleApprove(creative)} className="text-green-600 focus:text-green-600">
+              <CheckCircle2 className="h-4 w-4 mr-2" /> Aprovar
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              onClick={() => { setRejectionCreative(creative); setRejectionOpen(true); }}
+            >
+              <Circle className="h-4 w-4 mr-2" /> Rejeitar
+            </DropdownMenuItem>
+          </>
+        )}
         {user?.role === "GESTOR" && (
           <>
             <DropdownMenuItem
@@ -345,7 +422,7 @@ const ProductDetail = () => {
 
           <TabsContent value="criativos" className="space-y-6 mt-4">
             {/* Creative Stats Dashboard */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
               <Card className="hub-card-shadow">
                 <CardContent className="p-4 flex items-center gap-3">
                   <div className="p-2 bg-primary/10 rounded-lg">
@@ -376,6 +453,17 @@ const ProductDetail = () => {
                   <div>
                     <p className="text-xl font-bold text-foreground">{creatives.filter(c => c.status === "PENDING").length}</p>
                     <p className="text-xs text-muted-foreground">Pendentes</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="hub-card-shadow">
+                <CardContent className="p-4 flex items-center gap-3">
+                  <div className="p-2 bg-amber-50 rounded-lg">
+                    <Circle className="h-5 w-5 text-amber-400" />
+                  </div>
+                  <div>
+                    <p className="text-xl font-bold text-foreground">{creatives.filter(c => c.approval_status === "pending_approval").length}</p>
+                    <p className="text-xs text-muted-foreground">Aguardando</p>
                   </div>
                 </CardContent>
               </Card>
@@ -582,20 +670,30 @@ const ProductDetail = () => {
                         <p className="text-[11px] text-muted-foreground leading-tight">{creative.objective}</p>
 
                         <div className="flex items-center justify-between">
-                          {user?.role === "GESTOR" ? (
-                            <button
-                              onClick={(e) => { e.stopPropagation(); toggleStatus(creative.id, creative.status); }}
-                              className="cursor-pointer hover:opacity-80 transition-opacity"
-                            >
+                          <div className="flex items-center gap-1.5">
+                            {user?.role === "GESTOR" ? (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); toggleStatus(creative.id, creative.status); }}
+                                className="cursor-pointer hover:opacity-80 transition-opacity"
+                              >
+                                <Badge variant={creative.status === "PUBLISHED" ? "default" : "secondary"} className="text-[10px]">
+                                  {creative.status === "PUBLISHED" ? "Publicado" : "Pendente"}
+                                </Badge>
+                              </button>
+                            ) : (
                               <Badge variant={creative.status === "PUBLISHED" ? "default" : "secondary"} className="text-[10px]">
                                 {creative.status === "PUBLISHED" ? "Publicado" : "Pendente"}
                               </Badge>
-                            </button>
-                          ) : (
-                            <Badge variant={creative.status === "PUBLISHED" ? "default" : "secondary"} className="text-[10px]">
-                              {creative.status === "PUBLISHED" ? "Publicado" : "Pendente"}
-                            </Badge>
-                          )}
+                            )}
+                            {creative.approval_status !== "none" && (
+                              <div onClick={(e) => e.stopPropagation()}>
+                                <ApprovalStatusBadge
+                                  status={creative.approval_status}
+                                  onClick={() => { setTimelineCreative(creative); setTimelineOpen(true); }}
+                                />
+                              </div>
+                            )}
+                          </div>
                           <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
                             <Calendar className="h-2.5 w-2.5" />
                             {new Date(creative.created_at).toLocaleDateString("pt-BR")}
@@ -684,6 +782,26 @@ const ProductDetail = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Timeline Modal */}
+      {timelineCreative && (
+        <CreativeTimelineModal
+          open={timelineOpen}
+          onOpenChange={setTimelineOpen}
+          creativeId={timelineCreative.id}
+          creativeCode={timelineCreative.code}
+        />
+      )}
+
+      {/* Rejection Dialog */}
+      {rejectionCreative && (
+        <RejectionReasonDialog
+          open={rejectionOpen}
+          onOpenChange={setRejectionOpen}
+          creativeCode={rejectionCreative.code}
+          onConfirm={(reason) => handleReject(rejectionCreative, reason)}
+        />
+      )}
     </Layout>
   );
 };
