@@ -40,6 +40,9 @@ interface Creative {
   objective: string;
   formats: string[];
   status: string;
+  approval_status: string;
+  uploaded_by: string | null;
+  rejection_reason: string | null;
   created_at: string;
   notes: string | null;
   thumbnail_url?: string | null;
