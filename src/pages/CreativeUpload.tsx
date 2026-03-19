@@ -31,6 +31,10 @@ const CreativeUpload = () => {
   const [searchParams] = useSearchParams();
   const roteiroId = searchParams.get("roteiro_id");
   const { toast } = useToast();
+  const { user } = useAuth();
+
+  const [isTeamMember, setIsTeamMember] = useState(false);
+  const [needsApproval, setNeedsApproval] = useState(true);
 
   const [step, setStep] = useState(1);
   const [creativeType, setCreativeType] = useState<CreativeType | "">("");
