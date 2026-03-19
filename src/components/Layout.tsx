@@ -21,6 +21,7 @@ import {
   UserPlus
 } from "lucide-react";
 import AddTeamMemberDialog from "@/components/AddTeamMemberDialog";
+import NotificationBell from "@/components/NotificationBell";
 
 interface LayoutProps {
   children: ReactNode;
