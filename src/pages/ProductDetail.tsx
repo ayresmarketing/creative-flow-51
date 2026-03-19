@@ -84,6 +84,57 @@ const ProductDetail = () => {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteCreativeId, setDeleteCreativeId] = useState<string | null>(null);
 
+  // Approval workflow
+  const [timelineOpen, setTimelineOpen] = useState(false);
+  const [timelineCreative, setTimelineCreative] = useState<Creative | null>(null);
+  const [rejectionOpen, setRejectionOpen] = useState(false);
+  const [rejectionCreative, setRejectionCreative] = useState<Creative | null>(null);
+
+  const isTeamMember = user?.role === "CLIENTE"; // clients and team members both see approval
+
+  const handleApprove = async (creative: Creative) => {
+    await supabase.from("creatives").update({ approval_status: "approved" }).eq("id", creative.id);
+    await (supabase as any).from("creative_revisions").insert({
+      creative_id: creative.id,
+      action: "approved",
+      actor_id: user?.id,
+      actor_name: user?.name,
+    });
+    // Notify uploader
+    if (creative.uploaded_by) {
+      await (supabase as any).from("notifications").insert({
+        user_id: creative.uploaded_by,
+        title: "Criativo aprovado ✅",
+        message: `${creative.code} foi aprovado.`,
+        link: `/products/${id}`,
+      });
+    }
+    setCreatives(prev => prev.map(c => c.id === creative.id ? { ...c, approval_status: "approved" } : c));
+    toast({ title: "Criativo aprovado!" });
+  };
+
+  const handleReject = async (creative: Creative, reason: string) => {
+    await supabase.from("creatives").update({ approval_status: "rejected", rejection_reason: reason }).eq("id", creative.id);
+    await (supabase as any).from("creative_revisions").insert({
+      creative_id: creative.id,
+      action: "rejected",
+      actor_id: user?.id,
+      actor_name: user?.name,
+      comment: reason,
+    });
+    // Notify uploader
+    if (creative.uploaded_by) {
+      await (supabase as any).from("notifications").insert({
+        user_id: creative.uploaded_by,
+        title: "Criativo rejeitado ❌",
+        message: `${creative.code}: ${reason}`,
+        link: `/products/${id}`,
+      });
+    }
+    setCreatives(prev => prev.map(c => c.id === creative.id ? { ...c, approval_status: "rejected", rejection_reason: reason } : c));
+    toast({ title: "Criativo rejeitado" });
+  };
+
   const objectiveCategories = ["Todos", "Vendas", "Conteúdo", "Lembrete", "Remarketing", "Captação", "Carrinho Aberto", "Outro"];
 
   const fetchData = useCallback(async () => {
