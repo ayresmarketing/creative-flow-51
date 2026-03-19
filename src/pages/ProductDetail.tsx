@@ -318,6 +318,26 @@ const ProductDetail = () => {
         <DropdownMenuItem onClick={() => handleDownload(creative)}>
           <Download className="h-4 w-4 mr-2" /> Baixar
         </DropdownMenuItem>
+        {/* Timeline */}
+        {creative.approval_status !== "none" && (
+          <DropdownMenuItem onClick={() => { setTimelineCreative(creative); setTimelineOpen(true); }}>
+            <Clock className="h-4 w-4 mr-2" /> Ver Linha do Tempo
+          </DropdownMenuItem>
+        )}
+        {/* Client approval actions */}
+        {user?.role === "CLIENTE" && creative.approval_status === "pending_approval" && (
+          <>
+            <DropdownMenuItem onClick={() => handleApprove(creative)} className="text-green-600 focus:text-green-600">
+              <CheckCircle2 className="h-4 w-4 mr-2" /> Aprovar
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              onClick={() => { setRejectionCreative(creative); setRejectionOpen(true); }}
+            >
+              <Circle className="h-4 w-4 mr-2" /> Rejeitar
+            </DropdownMenuItem>
+          </>
+        )}
         {user?.role === "GESTOR" && (
           <>
             <DropdownMenuItem
