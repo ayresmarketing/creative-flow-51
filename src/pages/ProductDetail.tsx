@@ -659,20 +659,30 @@ const ProductDetail = () => {
                         <p className="text-[11px] text-muted-foreground leading-tight">{creative.objective}</p>
 
                         <div className="flex items-center justify-between">
-                          {user?.role === "GESTOR" ? (
-                            <button
-                              onClick={(e) => { e.stopPropagation(); toggleStatus(creative.id, creative.status); }}
-                              className="cursor-pointer hover:opacity-80 transition-opacity"
-                            >
+                          <div className="flex items-center gap-1.5">
+                            {user?.role === "GESTOR" ? (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); toggleStatus(creative.id, creative.status); }}
+                                className="cursor-pointer hover:opacity-80 transition-opacity"
+                              >
+                                <Badge variant={creative.status === "PUBLISHED" ? "default" : "secondary"} className="text-[10px]">
+                                  {creative.status === "PUBLISHED" ? "Publicado" : "Pendente"}
+                                </Badge>
+                              </button>
+                            ) : (
                               <Badge variant={creative.status === "PUBLISHED" ? "default" : "secondary"} className="text-[10px]">
                                 {creative.status === "PUBLISHED" ? "Publicado" : "Pendente"}
                               </Badge>
-                            </button>
-                          ) : (
-                            <Badge variant={creative.status === "PUBLISHED" ? "default" : "secondary"} className="text-[10px]">
-                              {creative.status === "PUBLISHED" ? "Publicado" : "Pendente"}
-                            </Badge>
-                          )}
+                            )}
+                            {creative.approval_status !== "none" && (
+                              <div onClick={(e) => e.stopPropagation()}>
+                                <ApprovalStatusBadge
+                                  status={creative.approval_status}
+                                  onClick={() => { setTimelineCreative(creative); setTimelineOpen(true); }}
+                                />
+                              </div>
+                            )}
+                          </div>
                           <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
                             <Calendar className="h-2.5 w-2.5" />
                             {new Date(creative.created_at).toLocaleDateString("pt-BR")}
