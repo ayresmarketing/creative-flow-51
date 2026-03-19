@@ -71,6 +71,18 @@ const CreativeUpload = () => {
       });
   }, [id]);
 
+  // Check if user is a team member
+  useEffect(() => {
+    if (!user) return;
+    (supabase as any).from("client_team_members")
+      .select("id")
+      .eq("user_id", user.id)
+      .limit(1)
+      .then(({ data }: { data: any[] | null }) => {
+        setIsTeamMember(!!(data && data.length > 0));
+      });
+  }, [user]);
+
   const getTypePrefix = useCallback(() => {
     if (creativeType === "PHOTO") return "ADF";
     if (creativeType === "VIDEO") return "ADV";
