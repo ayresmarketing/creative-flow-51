@@ -422,7 +422,7 @@ const ProductDetail = () => {
 
           <TabsContent value="criativos" className="space-y-6 mt-4">
             {/* Creative Stats Dashboard */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
               <Card className="hub-card-shadow">
                 <CardContent className="p-4 flex items-center gap-3">
                   <div className="p-2 bg-primary/10 rounded-lg">
@@ -453,6 +453,17 @@ const ProductDetail = () => {
                   <div>
                     <p className="text-xl font-bold text-foreground">{creatives.filter(c => c.status === "PENDING").length}</p>
                     <p className="text-xs text-muted-foreground">Pendentes</p>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="hub-card-shadow">
+                <CardContent className="p-4 flex items-center gap-3">
+                  <div className="p-2 bg-amber-50 rounded-lg">
+                    <Circle className="h-5 w-5 text-amber-400" />
+                  </div>
+                  <div>
+                    <p className="text-xl font-bold text-foreground">{creatives.filter(c => c.approval_status === "pending_approval").length}</p>
+                    <p className="text-xs text-muted-foreground">Aguardando</p>
                   </div>
                 </CardContent>
               </Card>
