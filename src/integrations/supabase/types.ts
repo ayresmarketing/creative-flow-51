@@ -633,6 +633,14 @@ export type Database = {
         }
         Returns: boolean
       }
+      user_has_client_access: {
+        Args: { _client_id: string; _user_id: string }
+        Returns: boolean
+      }
+      user_owns_client: {
+        Args: { _client_id: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "gestor" | "cliente"
