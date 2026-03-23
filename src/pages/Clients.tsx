@@ -43,7 +43,7 @@ interface ClientRecord {
 
 const Clients = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const { toast } = useToast();
   const [createOpen, setCreateOpen] = useState(false);
   const [clients, setClients] = useState<ClientRecord[]>([]);
@@ -63,11 +63,23 @@ const Clients = () => {
   }, []);
 
   useEffect(() => {
-    if (user?.role === "GESTOR") fetchClients();
-  }, [user, fetchClients]);
+    if (!loading && user?.role === "GESTOR") fetchClients();
+  }, [user, loading, fetchClients]);
 
-  if (user?.role !== "GESTOR") {
-    navigate("/dashboard");
+  useEffect(() => {
+    if (!loading && user && user.role !== "GESTOR") {
+      navigate("/dashboard");
+    }
+    if (!loading && !user) {
+      navigate("/login");
+    }
+  }, [user, loading, navigate]);
+
+  if (loading || !user) {
+    return null;
+  }
+
+  if (user.role !== "GESTOR") {
     return null;
   }
 
