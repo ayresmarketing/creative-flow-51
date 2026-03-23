@@ -53,7 +53,7 @@ const ClientProducts = () => {
       .from("clients")
       .select("name")
       .eq("id", clientId)
-      .single()
+      .maybeSingle()
       .then(({ data }) => setClientName(data?.name || ""));
     fetchProducts();
   }, [clientId, fetchProducts]);
