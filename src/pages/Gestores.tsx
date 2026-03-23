@@ -17,7 +17,7 @@ interface GestorRecord {
 
 const Gestores = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const [createOpen, setCreateOpen] = useState(false);
   const [gestors, setGestors] = useState<GestorRecord[]>([]);
 
@@ -31,11 +31,23 @@ const Gestores = () => {
   }, []);
 
   useEffect(() => {
-    if (user?.role === "GESTOR") fetchGestors();
-  }, [user, fetchGestors]);
+    if (!loading && user?.role === "GESTOR") fetchGestors();
+  }, [user, loading, fetchGestors]);
 
-  if (user?.role !== "GESTOR") {
-    navigate("/products");
+  useEffect(() => {
+    if (!loading && user && user.role !== "GESTOR") {
+      navigate("/products");
+    }
+    if (!loading && !user) {
+      navigate("/login");
+    }
+  }, [user, loading, navigate]);
+
+  if (loading || !user) {
+    return null;
+  }
+
+  if (user.role !== "GESTOR") {
     return null;
   }
 

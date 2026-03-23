@@ -27,7 +27,7 @@ interface Product {
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
@@ -48,8 +48,20 @@ const Dashboard = () => {
   }, [user]);
 
   useEffect(() => {
-    fetchProducts();
-  }, [fetchProducts]);
+    if (!loading) {
+      fetchProducts();
+    }
+  }, [fetchProducts, loading]);
+
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate("/login");
+    }
+  }, [loading, user, navigate]);
+
+  if (loading || !user) {
+    return null;
+  }
 
   const filteredProducts = products.filter(product =>
     product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
