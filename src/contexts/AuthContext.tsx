@@ -31,44 +31,63 @@ function generatePassword(length = 12): string {
 }
 
 async function fetchAppUser(authUser: User): Promise<AppUser | null> {
-  // Fetch role
-  const { data: roleData } = await supabase
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", authUser.id)
-    .single();
+  const [{ data: roleData }, { data: profile }] = await Promise.all([
+    supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", authUser.id)
+      .maybeSingle(),
+    supabase
+      .from("profiles")
+      .select("name, email")
+      .eq("user_id", authUser.id)
+      .maybeSingle(),
+  ]);
 
   if (!roleData) return null;
 
   const role = roleData.role === "gestor" ? "GESTOR" : "CLIENTE";
-
-  // Fetch profile
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("name, email")
-    .eq("user_id", authUser.id)
-    .single();
+  const normalizedEmail = (profile?.email || authUser.email || "").trim().toLowerCase();
 
   // If cliente, fetch client record (own or via team membership)
   let clientId: string | undefined;
   if (role === "CLIENTE") {
-    const { data: client } = await supabase
-      .from("clients")
-      .select("id")
-      .eq("user_id", authUser.id)
-      .single();
-    if (client) {
-      clientId = client.id;
-    } else {
-      // Check team membership
-      const { data: teamMember } = await supabase
+    const [clientByUser, teamMemberByUser, clientByEmail, teamMemberByEmail] = await Promise.all([
+      supabase
+        .from("clients")
+        .select("id")
+        .eq("user_id", authUser.id)
+        .maybeSingle(),
+      supabase
         .from("client_team_members")
         .select("client_id")
         .eq("user_id", authUser.id)
         .limit(1)
-        .single();
-      clientId = teamMember?.client_id;
-    }
+        .maybeSingle(),
+      normalizedEmail
+        ? supabase
+            .from("clients")
+            .select("id")
+            .eq("email", normalizedEmail)
+            .limit(1)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+      normalizedEmail
+        ? supabase
+            .from("client_team_members")
+            .select("client_id")
+            .eq("email", normalizedEmail)
+            .limit(1)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+    ]);
+
+    clientId =
+      clientByUser.data?.id ||
+      teamMemberByUser.data?.client_id ||
+      clientByEmail.data?.id ||
+      teamMemberByEmail.data?.client_id ||
+      undefined;
   }
 
   return {

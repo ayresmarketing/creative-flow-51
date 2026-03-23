@@ -35,14 +35,15 @@ const Layout = ({ children }: LayoutProps) => {
   const [teamDialogOpen, setTeamDialogOpen] = useState(false);
 
   useEffect(() => {
+    setClientLogoUrl(null);
     if (user?.role === "CLIENTE" && user.clientId) {
       (supabase as any)
         .from("clients")
         .select("logo_url")
         .eq("id", user.clientId)
-        .single()
+        .maybeSingle()
         .then(({ data }: { data: { logo_url: string | null } | null }) => {
-          if (data?.logo_url) setClientLogoUrl(data.logo_url);
+          setClientLogoUrl(data?.logo_url || null);
         });
     }
   }, [user]);

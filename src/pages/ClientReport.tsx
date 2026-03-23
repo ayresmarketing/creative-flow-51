@@ -16,7 +16,7 @@ const ClientReport = () => {
       .from("clients")
       .select("report_html")
       .eq("id", user.clientId)
-      .single()
+      .maybeSingle()
       .then(({ data }: { data: any }) => {
         setReportHtml(data?.report_html || null);
         setLoading(false);

@@ -19,7 +19,7 @@ const GestorClientReport = () => {
       .from("clients")
       .select("report_html, name")
       .eq("id", clientId)
-      .single()
+      .maybeSingle()
       .then(({ data }: { data: any }) => {
         setReportHtml(data?.report_html || null);
         setClientName(data?.name || "");
