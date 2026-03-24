@@ -770,6 +770,29 @@ const CreativeUpload = () => {
                   </div>
                 </CardContent>
               </Card>
+              {isCollaborator && (
+                <Card className="hub-card-shadow">
+                  <CardContent className="p-6 space-y-3">
+                    <Label className="text-sm font-semibold">Este criativo precisa de aprovação antes de ir para tráfego?</Label>
+                    <div className="flex gap-3">
+                      <Button
+                        variant={needsApproval === true ? "default" : "outline"}
+                        onClick={() => setNeedsApproval(true)}
+                        size="sm"
+                      >
+                        Sim, aguardar aprovação
+                      </Button>
+                      <Button
+                        variant={needsApproval === false ? "default" : "outline"}
+                        onClick={() => setNeedsApproval(false)}
+                        size="sm"
+                      >
+                        Não, já pode subir
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           );
         }
