@@ -43,6 +43,9 @@ interface Creative {
   created_at: string;
   notes: string | null;
   thumbnail_url?: string | null;
+  approval_status?: string;
+  rejection_reason?: string | null;
+  uploaded_by?: string | null;
 }
 
 interface ProductData {
