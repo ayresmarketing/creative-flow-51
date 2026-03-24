@@ -17,10 +17,8 @@ import {
   Layers,
   Menu,
   X,
-  BarChart3,
-  UserPlus
+  BarChart3
 } from "lucide-react";
-import AddTeamMemberDialog from "@/components/AddTeamMemberDialog";
 
 interface LayoutProps {
   children: ReactNode;
