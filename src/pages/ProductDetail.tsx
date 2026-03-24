@@ -31,6 +31,8 @@ import RoteiroList from "@/components/RoteiroList";
 import ProductNotes from "@/components/ProductNotes";
 import BriefingDisplay from "@/components/BriefingDisplay";
 import ProductContentsTab from "@/components/ProductContentsTab";
+import CreativeApprovalBadge from "@/components/CreativeApprovalBadge";
+import CreativeTimeline from "@/components/CreativeTimeline";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface Creative {
