@@ -612,6 +612,17 @@ const ProductDetail = () => {
                           </span>
                         </div>
 
+                        {/* Approval badge */}
+                        {creative.approval_status && creative.approval_status !== "none" && (
+                          <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                            <CreativeApprovalBadge
+                              creativeId={creative.id}
+                              approvalStatus={creative.approval_status}
+                              onStatusChanged={(s) => setCreatives(prev => prev.map(c => c.id === creative.id ? { ...c, approval_status: s } : c))}
+                            />
+                          </div>
+                        )}
+
                         <div className="flex flex-wrap gap-1">
                           {creative.formats.map((format) => (
                             <Badge key={format} variant="outline" className="text-[10px] px-1.5 py-0">{format}</Badge>
