@@ -28,6 +28,7 @@ interface BulkItem {
 const CreativeUpload = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const roteiroId = searchParams.get("roteiro_id");
   const { toast } = useToast();
