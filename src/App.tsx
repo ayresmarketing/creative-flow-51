@@ -41,6 +41,7 @@ const App = () => (
             <Route path="/conteudos" element={<Contents />} />
             <Route path="/swipe-files" element={<SwipeFiles />} />
             <Route path="/relatorio" element={<ClientReport />} />
+            <Route path="/equipe" element={<TeamPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
