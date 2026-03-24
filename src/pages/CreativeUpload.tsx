@@ -70,6 +70,22 @@ const CreativeUpload = () => {
       });
   }, [id]);
 
+  // Check if user is a collaborator (team member with colaborador role)
+  useEffect(() => {
+    if (!user?.id) return;
+    (supabase as any)
+      .from("client_team_members")
+      .select("team_role")
+      .eq("user_id", user.id)
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }: any) => {
+        if (data?.team_role === "colaborador") {
+          setIsCollaborator(true);
+        }
+      });
+  }, [user?.id]);
+
   const getTypePrefix = useCallback(() => {
     if (creativeType === "PHOTO") return "ADF";
     if (creativeType === "VIDEO") return "ADV";
