@@ -705,6 +705,16 @@ const ProductDetail = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Creative Timeline */}
+      {timelineCreative && (
+        <CreativeTimeline
+          open={timelineOpen}
+          onOpenChange={setTimelineOpen}
+          creativeId={timelineCreative.id}
+          creativeCode={timelineCreative.code}
+        />
+      )}
     </Layout>
   );
 };
