@@ -268,6 +268,9 @@ const ProductDetail = () => {
         <DropdownMenuItem onClick={() => handleDownload(creative)}>
           <Download className="h-4 w-4 mr-2" /> Baixar
         </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => { setTimelineCreative(creative); setTimelineOpen(true); }}>
+          <Clock className="h-4 w-4 mr-2" /> Linha do Tempo
+        </DropdownMenuItem>
         {user?.role === "GESTOR" && (
           <>
             <DropdownMenuItem
