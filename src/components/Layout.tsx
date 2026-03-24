@@ -30,7 +30,6 @@ const Layout = ({ children }: LayoutProps) => {
   const { user, logout } = useAuth();
   const [clientLogoUrl, setClientLogoUrl] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [teamDialogOpen, setTeamDialogOpen] = useState(false);
 
   useEffect(() => {
     setClientLogoUrl(null);
