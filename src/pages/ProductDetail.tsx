@@ -82,6 +82,8 @@ const ProductDetail = () => {
   // Delete dialog
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteCreativeId, setDeleteCreativeId] = useState<string | null>(null);
+  const [timelineOpen, setTimelineOpen] = useState(false);
+  const [timelineCreative, setTimelineCreative] = useState<Creative | null>(null);
 
   const objectiveCategories = ["Todos", "Vendas", "Conteúdo", "Lembrete", "Remarketing", "Captação", "Carrinho Aberto", "Outro"];
 
