@@ -49,6 +49,8 @@ const CreativeUpload = () => {
   const [bulkPrimaryFormat, setBulkPrimaryFormat] = useState<FormatType | "">("");
   const [bulkItems, setBulkItems] = useState<BulkItem[]>([]);
   const [isDragOverBulk, setIsDragOverBulk] = useState(false);
+  const [needsApproval, setNeedsApproval] = useState<boolean | null>(null);
+  const [isCollaborator, setIsCollaborator] = useState(false);
 
   const [productName, setProductName] = useState("");
   const [productAcronym, setProductAcronym] = useState("");
