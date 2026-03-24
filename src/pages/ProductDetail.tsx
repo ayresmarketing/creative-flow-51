@@ -31,6 +31,8 @@ import RoteiroList from "@/components/RoteiroList";
 import ProductNotes from "@/components/ProductNotes";
 import BriefingDisplay from "@/components/BriefingDisplay";
 import ProductContentsTab from "@/components/ProductContentsTab";
+import CreativeApprovalBadge from "@/components/CreativeApprovalBadge";
+import CreativeTimeline from "@/components/CreativeTimeline";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface Creative {
@@ -43,6 +45,9 @@ interface Creative {
   created_at: string;
   notes: string | null;
   thumbnail_url?: string | null;
+  approval_status?: string;
+  rejection_reason?: string | null;
+  uploaded_by?: string | null;
 }
 
 interface ProductData {
@@ -77,6 +82,8 @@ const ProductDetail = () => {
   // Delete dialog
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteCreativeId, setDeleteCreativeId] = useState<string | null>(null);
+  const [timelineOpen, setTimelineOpen] = useState(false);
+  const [timelineCreative, setTimelineCreative] = useState<Creative | null>(null);
 
   const objectiveCategories = ["Todos", "Vendas", "Conteúdo", "Lembrete", "Remarketing", "Captação", "Carrinho Aberto", "Outro"];
 
@@ -260,6 +267,9 @@ const ProductDetail = () => {
         )}
         <DropdownMenuItem onClick={() => handleDownload(creative)}>
           <Download className="h-4 w-4 mr-2" /> Baixar
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => { setTimelineCreative(creative); setTimelineOpen(true); }}>
+          <Clock className="h-4 w-4 mr-2" /> Linha do Tempo
         </DropdownMenuItem>
         {user?.role === "GESTOR" && (
           <>
@@ -602,6 +612,17 @@ const ProductDetail = () => {
                           </span>
                         </div>
 
+                        {/* Approval badge */}
+                        {creative.approval_status && creative.approval_status !== "none" && (
+                          <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                            <CreativeApprovalBadge
+                              creativeId={creative.id}
+                              approvalStatus={creative.approval_status}
+                              onStatusChanged={(s) => setCreatives(prev => prev.map(c => c.id === creative.id ? { ...c, approval_status: s } : c))}
+                            />
+                          </div>
+                        )}
+
                         <div className="flex flex-wrap gap-1">
                           {creative.formats.map((format) => (
                             <Badge key={format} variant="outline" className="text-[10px] px-1.5 py-0">{format}</Badge>
@@ -684,6 +705,16 @@ const ProductDetail = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Creative Timeline */}
+      {timelineCreative && (
+        <CreativeTimeline
+          open={timelineOpen}
+          onOpenChange={setTimelineOpen}
+          creativeId={timelineCreative.id}
+          creativeCode={timelineCreative.code}
+        />
+      )}
     </Layout>
   );
 };

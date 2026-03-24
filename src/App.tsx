@@ -15,6 +15,7 @@ import Contents from "./pages/Contents";
 import SwipeFiles from "./pages/SwipeFiles";
 import ClientReport from "./pages/ClientReport";
 import GestorClientReport from "./pages/GestorClientReport";
+import TeamPage from "./pages/TeamPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -40,6 +41,7 @@ const App = () => (
             <Route path="/conteudos" element={<Contents />} />
             <Route path="/swipe-files" element={<SwipeFiles />} />
             <Route path="/relatorio" element={<ClientReport />} />
+            <Route path="/equipe" element={<TeamPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

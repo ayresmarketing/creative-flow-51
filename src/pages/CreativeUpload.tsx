@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import Layout from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,6 +28,7 @@ interface BulkItem {
 const CreativeUpload = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const roteiroId = searchParams.get("roteiro_id");
   const { toast } = useToast();
@@ -47,6 +49,8 @@ const CreativeUpload = () => {
   const [bulkPrimaryFormat, setBulkPrimaryFormat] = useState<FormatType | "">("");
   const [bulkItems, setBulkItems] = useState<BulkItem[]>([]);
   const [isDragOverBulk, setIsDragOverBulk] = useState(false);
+  const [needsApproval, setNeedsApproval] = useState<boolean | null>(null);
+  const [isCollaborator, setIsCollaborator] = useState(false);
 
   const [productName, setProductName] = useState("");
   const [productAcronym, setProductAcronym] = useState("");
@@ -65,6 +69,22 @@ const CreativeUpload = () => {
         }
       });
   }, [id]);
+
+  // Check if user is a collaborator (team member with colaborador role)
+  useEffect(() => {
+    if (!user?.id) return;
+    (supabase as any)
+      .from("client_team_members")
+      .select("team_role")
+      .eq("user_id", user.id)
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }: any) => {
+        if (data?.team_role === "colaborador") {
+          setIsCollaborator(true);
+        }
+      });
+  }, [user?.id]);
 
   const getTypePrefix = useCallback(() => {
     if (creativeType === "PHOTO") return "ADF";
@@ -227,6 +247,8 @@ const CreativeUpload = () => {
             formats: itemFormats,
             product_id: id,
             notes: notes || null,
+            uploaded_by: user?.id || null,
+            approval_status: isCollaborator ? (needsApproval ? "pending" : "none") : "none",
           }).select("id").single();
 
           if (crErr || !creative) {
@@ -299,6 +321,8 @@ const CreativeUpload = () => {
         formats,
         product_id: id,
         notes: notes || null,
+        uploaded_by: user?.id || null,
+        approval_status: isCollaborator ? (needsApproval ? "pending" : "none") : "none",
       }).select("id").single();
 
       if (crErr || !creative) throw crErr;
@@ -746,6 +770,29 @@ const CreativeUpload = () => {
                   </div>
                 </CardContent>
               </Card>
+              {isCollaborator && (
+                <Card className="hub-card-shadow">
+                  <CardContent className="p-6 space-y-3">
+                    <Label className="text-sm font-semibold">Este criativo precisa de aprovação antes de ir para tráfego?</Label>
+                    <div className="flex gap-3">
+                      <Button
+                        variant={needsApproval === true ? "default" : "outline"}
+                        onClick={() => setNeedsApproval(true)}
+                        size="sm"
+                      >
+                        Sim, aguardar aprovação
+                      </Button>
+                      <Button
+                        variant={needsApproval === false ? "default" : "outline"}
+                        onClick={() => setNeedsApproval(false)}
+                        size="sm"
+                      >
+                        Não, já pode subir
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           );
         }
@@ -815,6 +862,29 @@ const CreativeUpload = () => {
                 )}
               </CardContent>
             </Card>
+            {isCollaborator && (
+              <Card className="hub-card-shadow">
+                <CardContent className="p-6 space-y-3">
+                  <Label className="text-sm font-semibold">Este criativo precisa de aprovação antes de ir para tráfego?</Label>
+                  <div className="flex gap-3">
+                    <Button
+                      variant={needsApproval === true ? "default" : "outline"}
+                      onClick={() => setNeedsApproval(true)}
+                      size="sm"
+                    >
+                      Sim, aguardar aprovação
+                    </Button>
+                    <Button
+                      variant={needsApproval === false ? "default" : "outline"}
+                      onClick={() => setNeedsApproval(false)}
+                      size="sm"
+                    >
+                      Não, já pode subir
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
         );
 
