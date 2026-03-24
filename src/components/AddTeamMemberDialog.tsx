@@ -10,9 +10,10 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { UserPlus, Copy, Check } from "lucide-react";
+import { UserPlus, Copy, Check, Shield, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { Card } from "@/components/ui/card";
 
 function generatePassword(length = 12): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%&*";
@@ -29,9 +30,13 @@ interface AddTeamMemberDialogProps {
   onAdded?: () => void;
 }
 
+type TeamRole = "admin" | "colaborador";
+
 const AddTeamMemberDialog = ({ open, onOpenChange, clientId, clientName, onAdded }: AddTeamMemberDialogProps) => {
   const { toast } = useToast();
-  
+
+  const [step, setStep] = useState<"role" | "form" | "done">("role");
+  const [selectedRole, setSelectedRole] = useState<TeamRole | null>(null);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [saving, setSaving] = useState(false);
@@ -39,7 +44,7 @@ const AddTeamMemberDialog = ({ open, onOpenChange, clientId, clientName, onAdded
   const [copied, setCopied] = useState(false);
 
   const handleSave = async () => {
-    if (!name.trim() || !email.trim()) {
+    if (!name.trim() || !email.trim() || !selectedRole) {
       toast({ title: "Preencha nome e e-mail", variant: "destructive" });
       return;
     }
@@ -48,7 +53,6 @@ const AddTeamMemberDialog = ({ open, onOpenChange, clientId, clientName, onAdded
     try {
       const password = generatePassword();
 
-      // Create a new auth user with cliente role
       const response = await supabase.functions.invoke("create-user", {
         body: { name: name.trim(), email: email.trim(), password, role: "cliente" },
       });
@@ -57,14 +61,15 @@ const AddTeamMemberDialog = ({ open, onOpenChange, clientId, clientName, onAdded
 
       const userId = response.data.user_id;
 
-      // Link this user to the client via team members table
       await (supabase as any).from("client_team_members").insert({
         client_id: clientId,
         email: email.trim(),
         user_id: userId,
+        team_role: selectedRole,
       });
 
       setGeneratedPassword(password);
+      setStep("done");
       toast({ title: "Membro adicionado com sucesso!" });
       onAdded?.();
     } catch (err: any) {
@@ -83,6 +88,8 @@ const AddTeamMemberDialog = ({ open, onOpenChange, clientId, clientName, onAdded
   };
 
   const handleClose = () => {
+    setStep("role");
+    setSelectedRole(null);
     setName("");
     setEmail("");
     setGeneratedPassword(null);
@@ -93,15 +100,65 @@ const AddTeamMemberDialog = ({ open, onOpenChange, clientId, clientName, onAdded
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-md">
-        {!generatedPassword ? (
+        {step === "role" && (
           <>
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <UserPlus className="h-5 w-5" />
-                Adicionar Membro
+                Tipo de Acesso
               </DialogTitle>
               <DialogDescription>
-                Adicione um funcionário do cliente <strong>{clientName}</strong> para que ele também possa acessar e subir criativos.
+                Escolha o tipo de acesso para o novo membro da equipe de <strong>{clientName}</strong>.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3">
+              <Card
+                className={`p-4 cursor-pointer transition-all hover:shadow-md ${selectedRole === "admin" ? "ring-2 ring-primary" : ""}`}
+                onClick={() => setSelectedRole("admin")}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-primary/10 rounded-lg">
+                    <Shield className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-sm">Administrador</p>
+                    <p className="text-xs text-muted-foreground">Acesso completo ao painel, mesmas permissões do cliente principal.</p>
+                  </div>
+                </div>
+              </Card>
+              <Card
+                className={`p-4 cursor-pointer transition-all hover:shadow-md ${selectedRole === "colaborador" ? "ring-2 ring-primary" : ""}`}
+                onClick={() => setSelectedRole("colaborador")}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-amber-100 rounded-lg">
+                    <Users className="h-5 w-5 text-amber-600" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-sm">Colaborador</p>
+                    <p className="text-xs text-muted-foreground">Pode subir criativos (com aprovação) e acessar roteiros.</p>
+                  </div>
+                </div>
+              </Card>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={handleClose}>Cancelar</Button>
+              <Button onClick={() => setStep("form")} disabled={!selectedRole}>
+                Continuar
+              </Button>
+            </DialogFooter>
+          </>
+        )}
+
+        {step === "form" && (
+          <>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <UserPlus className="h-5 w-5" />
+                Adicionar {selectedRole === "admin" ? "Administrador" : "Colaborador"}
+              </DialogTitle>
+              <DialogDescription>
+                Preencha os dados do novo membro.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
@@ -126,13 +183,15 @@ const AddTeamMemberDialog = ({ open, onOpenChange, clientId, clientName, onAdded
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={handleClose}>Cancelar</Button>
+              <Button variant="outline" onClick={() => setStep("role")}>Voltar</Button>
               <Button onClick={handleSave} disabled={saving}>
                 {saving ? "Criando..." : "Adicionar Membro"}
               </Button>
             </DialogFooter>
           </>
-        ) : (
+        )}
+
+        {step === "done" && generatedPassword && (
           <>
             <DialogHeader>
               <DialogTitle>Membro criado com sucesso!</DialogTitle>
@@ -144,6 +203,10 @@ const AddTeamMemberDialog = ({ open, onOpenChange, clientId, clientName, onAdded
               <div>
                 <Label className="text-xs text-muted-foreground">E-mail</Label>
                 <p className="text-sm font-medium">{email}</p>
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">Tipo de Acesso</Label>
+                <p className="text-sm font-medium">{selectedRole === "admin" ? "Administrador" : "Colaborador"}</p>
               </div>
               <div>
                 <Label className="text-xs text-muted-foreground">Senha</Label>
