@@ -338,6 +338,17 @@ const CreativeUpload = () => {
 
       if (crErr || !creative) throw crErr;
 
+      // Add timeline entry if needs approval
+      if (needsApproval) {
+        await supabase.from("creative_revisions").insert({
+          creative_id: creative.id,
+          actor_id: user?.id || "",
+          actor_name: user?.name || "Sistema",
+          action: "Aguardando aprovação",
+          comment: null,
+        });
+      }
+
       const allFiles: { file: File; format: string; position: number }[] = [];
       feedFiles.forEach((f, i) => allFiles.push({ file: f, format: "Feed", position: i }));
       storiesFiles.forEach((f, i) => allFiles.push({ file: f, format: "Stories", position: i }));
