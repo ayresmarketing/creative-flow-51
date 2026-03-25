@@ -84,6 +84,20 @@ const ProductDetail = () => {
   const [deleteCreativeId, setDeleteCreativeId] = useState<string | null>(null);
   const [timelineOpen, setTimelineOpen] = useState(false);
   const [timelineCreative, setTimelineCreative] = useState<Creative | null>(null);
+  const [isCollaborator, setIsCollaborator] = useState(false);
+
+  useEffect(() => {
+    if (!user?.id || user.role !== "CLIENTE") return;
+    supabase
+      .from("client_team_members")
+      .select("team_role")
+      .eq("user_id", user.id)
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.team_role === "colaborador") setIsCollaborator(true);
+      });
+  }, [user?.id, user?.role]);
 
   const objectiveCategories = ["Todos", "Vendas", "Conteúdo", "Lembrete", "Remarketing", "Captação", "Carrinho Aberto", "Outro"];
 
