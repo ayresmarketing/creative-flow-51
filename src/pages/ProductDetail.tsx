@@ -84,6 +84,20 @@ const ProductDetail = () => {
   const [deleteCreativeId, setDeleteCreativeId] = useState<string | null>(null);
   const [timelineOpen, setTimelineOpen] = useState(false);
   const [timelineCreative, setTimelineCreative] = useState<Creative | null>(null);
+  const [isCollaborator, setIsCollaborator] = useState(false);
+
+  useEffect(() => {
+    if (!user?.id || user.role !== "CLIENTE") return;
+    supabase
+      .from("client_team_members")
+      .select("team_role")
+      .eq("user_id", user.id)
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.team_role === "colaborador") setIsCollaborator(true);
+      });
+  }, [user?.id, user?.role]);
 
   const objectiveCategories = ["Todos", "Vendas", "Conteúdo", "Lembrete", "Remarketing", "Captação", "Carrinho Aberto", "Outro"];
 
@@ -591,43 +605,51 @@ const ProductDetail = () => {
                         <p className="font-sans text-xs font-semibold text-foreground truncate leading-tight">{creative.code}</p>
                         <p className="text-[11px] text-muted-foreground leading-tight">{creative.objective}</p>
 
-                        <div className="flex items-center justify-between">
-                          {user?.role === "GESTOR" ? (
-                            <button
-                              onClick={(e) => { e.stopPropagation(); toggleStatus(creative.id, creative.status); }}
-                              className="cursor-pointer hover:opacity-80 transition-opacity"
-                            >
-                              <Badge variant={creative.status === "PUBLISHED" ? "default" : "secondary"} className="text-[10px]">
-                                {creative.status === "PUBLISHED" ? "Publicado" : "Pendente"}
-                              </Badge>
-                            </button>
-                          ) : (
-                            <Badge variant={creative.status === "PUBLISHED" ? "default" : "secondary"} className="text-[10px]">
-                              {creative.status === "PUBLISHED" ? "Publicado" : "Pendente"}
-                            </Badge>
-                          )}
-                          <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                        <div className="flex flex-wrap gap-1">
+                          {creative.formats.map((format) => (
+                            <Badge key={format} variant="outline" className="text-[10px] px-1.5 py-0">{format}</Badge>
+                          ))}
+                          <span className="text-[10px] text-muted-foreground flex items-center gap-0.5 ml-auto">
                             <Calendar className="h-2.5 w-2.5" />
                             {new Date(creative.created_at).toLocaleDateString("pt-BR")}
                           </span>
                         </div>
 
-                        {/* Approval badge */}
+                        {/* Publish button */}
+                        {user?.role === "GESTOR" ? (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); toggleStatus(creative.id, creative.status); }}
+                            className="w-full mt-1 py-1.5 px-3 rounded-md text-[11px] font-medium transition-colors border cursor-pointer flex items-center justify-center gap-1.5
+                              ${creative.status === 'PUBLISHED' 
+                                ? 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400' 
+                                : 'bg-muted border-border text-muted-foreground hover:bg-accent'}"
+                          >
+                            {creative.status === "PUBLISHED" ? (
+                              <><CheckCircle2 className="h-3 w-3" /> Publicado</>
+                            ) : (
+                              <><Circle className="h-3 w-3" /> Publicar</>
+                            )}
+                          </button>
+                        ) : (
+                          <div className={`w-full mt-1 py-1.5 px-3 rounded-md text-[11px] font-medium text-center border
+                            ${creative.status === 'PUBLISHED' 
+                              ? 'bg-green-50 border-green-200 text-green-700 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400' 
+                              : 'bg-muted border-border text-muted-foreground'}`}>
+                            {creative.status === "PUBLISHED" ? "Publicado" : "Pendente"}
+                          </div>
+                        )}
+
+                        {/* Approval section */}
                         {creative.approval_status && creative.approval_status !== "none" && (
-                          <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                          <div onClick={(e) => e.stopPropagation()}>
                             <CreativeApprovalBadge
                               creativeId={creative.id}
                               approvalStatus={creative.approval_status}
+                              isCollaborator={isCollaborator}
                               onStatusChanged={(s) => setCreatives(prev => prev.map(c => c.id === creative.id ? { ...c, approval_status: s } : c))}
                             />
                           </div>
                         )}
-
-                        <div className="flex flex-wrap gap-1">
-                          {creative.formats.map((format) => (
-                            <Badge key={format} variant="outline" className="text-[10px] px-1.5 py-0">{format}</Badge>
-                          ))}
-                        </div>
                       </div>
                     </CardContent>
                   </Card>

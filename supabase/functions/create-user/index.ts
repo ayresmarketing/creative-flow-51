@@ -12,7 +12,7 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Verify caller is a gestor
+    // Verify caller is authenticated
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -30,16 +30,15 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Check if caller is gestor
+    // Check if caller is gestor OR a client (clients can add team members)
     const { data: callerRole } = await supabaseAdmin
       .from("user_roles")
       .select("role")
       .eq("user_id", caller.id)
-      .eq("role", "gestor")
-      .single();
+      .maybeSingle();
 
     if (!callerRole) {
-      return new Response(JSON.stringify({ error: "Forbidden: only gestors can create users" }), {
+      return new Response(JSON.stringify({ error: "Forbidden: no role found" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -50,6 +49,7 @@ Deno.serve(async (req) => {
     const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
     const password = typeof body.password === "string" ? body.password : "";
     const role = typeof body.role === "string" ? body.role.trim() : "";
+    const isTeamMember = body.is_team_member === true;
 
     if (!name || !email || !password || !role) {
       return new Response(JSON.stringify({ error: "Missing required fields" }), {
@@ -87,6 +87,14 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Only gestors can create gestors. Clients can only create team members (role=cliente, is_team_member=true)
+    if (callerRole.role === "cliente" && (role === "gestor" || !isTeamMember)) {
+      return new Response(JSON.stringify({ error: "Forbidden: clients can only add team members" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Create auth user
     const { data: newAuthUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
       email,
@@ -111,9 +119,9 @@ Deno.serve(async (req) => {
     // Assign role
     await supabaseAdmin.from("user_roles").insert({ user_id: userId, role });
 
-    // If cliente, create client record
+    // If cliente AND NOT a team member, create client record
     let clientId: string | null = null;
-    if (role === "cliente") {
+    if (role === "cliente" && !isTeamMember) {
       const { data: clientData } = await supabaseAdmin
         .from("clients")
         .insert({ name, email, user_id: userId })

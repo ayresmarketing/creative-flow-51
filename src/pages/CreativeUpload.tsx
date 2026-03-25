@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import {
-  Upload, Image, Video, Layers, ArrowLeft, Check, X, FileImage, FileVideo, ArrowUp, ArrowDown, Plus, Copy as CopyIcon
+  Upload, Image, Video, Layers, ArrowLeft, Check, X, FileImage, FileVideo, ArrowUp, ArrowDown, Plus, Copy as CopyIcon, Clock
 } from "lucide-react";
 
 type CreativeType = "PHOTO" | "VIDEO" | "CAROUSEL";
@@ -248,11 +248,22 @@ const CreativeUpload = () => {
             product_id: id,
             notes: notes || null,
             uploaded_by: user?.id || null,
-            approval_status: isCollaborator ? (needsApproval ? "pending" : "none") : "none",
+            approval_status: needsApproval ? "pending" : "none",
           }).select("id").single();
 
           if (crErr || !creative) {
             throw crErr ?? new Error("Falha ao criar criativo no lote");
+          }
+
+          // Add timeline entry if needs approval
+          if (needsApproval) {
+            await supabase.from("creative_revisions").insert({
+              creative_id: creative.id,
+              actor_id: user?.id || "",
+              actor_name: user?.name || "Sistema",
+              action: "Aguardando aprovação",
+              comment: null,
+            });
           }
 
           // Upload primary file
@@ -322,10 +333,21 @@ const CreativeUpload = () => {
         product_id: id,
         notes: notes || null,
         uploaded_by: user?.id || null,
-        approval_status: isCollaborator ? (needsApproval ? "pending" : "none") : "none",
+        approval_status: needsApproval ? "pending" : "none",
       }).select("id").single();
 
       if (crErr || !creative) throw crErr;
+
+      // Add timeline entry if needs approval
+      if (needsApproval) {
+        await supabase.from("creative_revisions").insert({
+          creative_id: creative.id,
+          actor_id: user?.id || "",
+          actor_name: user?.name || "Sistema",
+          action: "Aguardando aprovação",
+          comment: null,
+        });
+      }
 
       const allFiles: { file: File; format: string; position: number }[] = [];
       feedFiles.forEach((f, i) => allFiles.push({ file: f, format: "Feed", position: i }));
@@ -510,6 +532,25 @@ const CreativeUpload = () => {
                         setBulkPrimaryFormat("");
                         setFormats([]);
                       }}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            {creativeType !== "" && (
+              <Card className="border-amber-200 bg-amber-50 dark:bg-amber-900/10 dark:border-amber-800">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Clock className="h-5 w-5 text-amber-600" />
+                      <div>
+                        <p className="font-medium text-sm">Necessita de aprovação?</p>
+                        <p className="text-xs text-muted-foreground">Marque se este criativo precisa ser aprovado antes de ir para tráfego</p>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={needsApproval === true}
+                      onCheckedChange={(checked) => setNeedsApproval(checked)}
                     />
                   </div>
                 </CardContent>
@@ -770,26 +811,11 @@ const CreativeUpload = () => {
                   </div>
                 </CardContent>
               </Card>
-              {isCollaborator && (
-                <Card className="hub-card-shadow">
-                  <CardContent className="p-6 space-y-3">
-                    <Label className="text-sm font-semibold">Este criativo precisa de aprovação antes de ir para tráfego?</Label>
-                    <div className="flex gap-3">
-                      <Button
-                        variant={needsApproval === true ? "default" : "outline"}
-                        onClick={() => setNeedsApproval(true)}
-                        size="sm"
-                      >
-                        Sim, aguardar aprovação
-                      </Button>
-                      <Button
-                        variant={needsApproval === false ? "default" : "outline"}
-                        onClick={() => setNeedsApproval(false)}
-                        size="sm"
-                      >
-                        Não, já pode subir
-                      </Button>
-                    </div>
+              {needsApproval && (
+                <Card className="hub-card-shadow border-amber-200">
+                  <CardContent className="p-4 flex items-center gap-3">
+                    <Clock className="h-5 w-5 text-amber-500" />
+                    <p className="text-sm text-muted-foreground">Estes criativos serão enviados como <strong>Aguardando aprovação</strong>.</p>
                   </CardContent>
                 </Card>
               )}
@@ -862,26 +888,11 @@ const CreativeUpload = () => {
                 )}
               </CardContent>
             </Card>
-            {isCollaborator && (
-              <Card className="hub-card-shadow">
-                <CardContent className="p-6 space-y-3">
-                  <Label className="text-sm font-semibold">Este criativo precisa de aprovação antes de ir para tráfego?</Label>
-                  <div className="flex gap-3">
-                    <Button
-                      variant={needsApproval === true ? "default" : "outline"}
-                      onClick={() => setNeedsApproval(true)}
-                      size="sm"
-                    >
-                      Sim, aguardar aprovação
-                    </Button>
-                    <Button
-                      variant={needsApproval === false ? "default" : "outline"}
-                      onClick={() => setNeedsApproval(false)}
-                      size="sm"
-                    >
-                      Não, já pode subir
-                    </Button>
-                  </div>
+            {needsApproval && (
+              <Card className="hub-card-shadow border-amber-200">
+                <CardContent className="p-4 flex items-center gap-3">
+                  <Clock className="h-5 w-5 text-amber-500" />
+                  <p className="text-sm text-muted-foreground">Este criativo será enviado como <strong>Aguardando aprovação</strong>.</p>
                 </CardContent>
               </Card>
             )}
