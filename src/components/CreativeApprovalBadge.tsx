@@ -23,6 +23,7 @@ import { ThumbsUp, ThumbsDown, RefreshCw } from "lucide-react";
 interface CreativeApprovalBadgeProps {
   creativeId: string;
   approvalStatus: string;
+  isCollaborator?: boolean;
   onStatusChanged?: (newStatus: string) => void;
   onResubmit?: () => void;
 }
