@@ -255,6 +255,17 @@ const CreativeUpload = () => {
             throw crErr ?? new Error("Falha ao criar criativo no lote");
           }
 
+          // Add timeline entry if needs approval
+          if (needsApproval) {
+            await supabase.from("creative_revisions").insert({
+              creative_id: creative.id,
+              actor_id: user?.id || "",
+              actor_name: user?.name || "Sistema",
+              action: "Aguardando aprovação",
+              comment: null,
+            });
+          }
+
           // Upload primary file
           const primaryPath = `${id}/${creative.id}/${bulkPrimaryFormat}/${Date.now()}_${item.primaryFile.name}`;
           await supabase.storage.from("creatives").upload(primaryPath, item.primaryFile);
