@@ -54,7 +54,7 @@ const AddTeamMemberDialog = ({ open, onOpenChange, clientId, clientName, onAdded
       const password = generatePassword();
 
       const response = await supabase.functions.invoke("create-user", {
-        body: { name: name.trim(), email: email.trim(), password, role: "cliente" },
+        body: { name: name.trim(), email: email.trim(), password, role: "cliente", is_team_member: true },
       });
 
       if (response.error) throw new Error(response.error.message);
