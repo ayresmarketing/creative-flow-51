@@ -645,6 +645,7 @@ const ProductDetail = () => {
                             <CreativeApprovalBadge
                               creativeId={creative.id}
                               approvalStatus={creative.approval_status}
+                              isCollaborator={isCollaborator}
                               onStatusChanged={(s) => setCreatives(prev => prev.map(c => c.id === creative.id ? { ...c, approval_status: s } : c))}
                             />
                           </div>
