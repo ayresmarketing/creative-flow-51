@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import {
-  Upload, Image, Video, Layers, ArrowLeft, Check, X, FileImage, FileVideo, ArrowUp, ArrowDown, Plus, Copy as CopyIcon
+  Upload, Image, Video, Layers, ArrowLeft, Check, X, FileImage, FileVideo, ArrowUp, ArrowDown, Plus, Copy as CopyIcon, Clock
 } from "lucide-react";
 
 type CreativeType = "PHOTO" | "VIDEO" | "CAROUSEL";
