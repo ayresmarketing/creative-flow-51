@@ -28,15 +28,15 @@ interface CreativeApprovalBadgeProps {
   onResubmit?: () => void;
 }
 
-const CreativeApprovalBadge = ({ creativeId, approvalStatus, onStatusChanged, onResubmit }: CreativeApprovalBadgeProps) => {
+const CreativeApprovalBadge = ({ creativeId, approvalStatus, isCollaborator = false, onStatusChanged, onResubmit }: CreativeApprovalBadgeProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [rejectionDialogOpen, setRejectionDialogOpen] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
   const [saving, setSaving] = useState(false);
 
-  // Gestors and clients can approve, collaborators cannot
-  const canApprove = user?.role === "GESTOR" || user?.role === "CLIENTE";
+  // Gestors and clients (non-collaborator) can approve
+  const canApprove = user?.role === "GESTOR" || (user?.role === "CLIENTE" && !isCollaborator);
 
   const updateStatus = async (status: string, reason?: string) => {
     setSaving(true);
