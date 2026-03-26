@@ -12,7 +12,7 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Verify caller is a gestor
+    // Verify caller is authorized
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -34,15 +34,7 @@ Deno.serve(async (req) => {
       .from("user_roles")
       .select("role")
       .eq("user_id", caller.id)
-      .eq("role", "gestor")
-      .single();
-
-    if (!callerRole) {
-      return new Response(JSON.stringify({ error: "Forbidden" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+      .maybeSingle();
 
     const { user_id, new_password } = await req.json();
 
@@ -51,6 +43,37 @@ Deno.serve(async (req) => {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    const isGestor = callerRole?.role === "gestor";
+
+    if (!isGestor) {
+      const { data: membership } = await supabaseAdmin
+        .from("client_team_members")
+        .select("client_id")
+        .eq("user_id", user_id)
+        .maybeSingle();
+
+      if (!membership) {
+        return new Response(JSON.stringify({ error: "Forbidden" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { data: ownedClient } = await supabaseAdmin
+        .from("clients")
+        .select("id")
+        .eq("id", membership.client_id)
+        .eq("user_id", caller.id)
+        .maybeSingle();
+
+      if (!ownedClient) {
+        return new Response(JSON.stringify({ error: "Forbidden" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     const { error } = await supabaseAdmin.auth.admin.updateUserById(user_id, {

@@ -95,6 +95,21 @@ Deno.serve(async (req) => {
       });
     }
 
+    if (callerRole.role === "cliente" && isTeamMember) {
+      const { data: ownedClient } = await supabaseAdmin
+        .from("clients")
+        .select("id")
+        .eq("user_id", caller.id)
+        .maybeSingle();
+
+      if (!ownedClient) {
+        return new Response(JSON.stringify({ error: "Apenas o cliente principal pode adicionar membros" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     // Create auth user
     const { data: newAuthUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
       email,
@@ -116,8 +131,14 @@ Deno.serve(async (req) => {
 
     const userId = newAuthUser.user.id;
 
-    // Assign role
-    await supabaseAdmin.from("user_roles").insert({ user_id: userId, role });
+    const { error: roleInsertError } = await supabaseAdmin.from("user_roles").insert({ user_id: userId, role });
+    if (roleInsertError) {
+      await supabaseAdmin.auth.admin.deleteUser(userId);
+      return new Response(JSON.stringify({ error: "Falha ao configurar permissões do usuário" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // If cliente AND NOT a team member, create client record
     let clientId: string | null = null;

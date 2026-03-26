@@ -11,6 +11,14 @@ const TeamPage = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
+  if (user?.isTeamMember && user.teamRole === "colaborador") {
+    return (
+      <Layout>
+        <div className="p-8 text-center text-muted-foreground">Colaboradores não podem gerenciar a equipe.</div>
+      </Layout>
+    );
+  }
+
   if (!user?.clientId) {
     return (
       <Layout>

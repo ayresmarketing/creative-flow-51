@@ -34,6 +34,12 @@ const Dashboard = () => {
 
   const fetchProducts = useCallback(async () => {
     if (!user) return;
+
+    if (user.role === "CLIENTE" && !user.clientId) {
+      setProducts([]);
+      return;
+    }
+
     let query = supabase
       .from("products")
       .select("id, name, acronym, category, created_at, client_id")
@@ -69,6 +75,7 @@ const Dashboard = () => {
   );
 
   const clientId = user?.clientId || "";
+  const canCreateProduct = user?.role === "CLIENTE" && !user?.isTeamMember && !!clientId;
 
   return (
     <Layout>
@@ -90,7 +97,7 @@ const Dashboard = () => {
               <p className="text-muted-foreground mt-1">Gerencie seus produtos e criativos</p>
             </div>
           </div>
-          {user?.role === "CLIENTE" && (
+          {canCreateProduct && (
             <Button onClick={() => setCreateOpen(true)} className="hub-shadow gap-2">
               <Plus className="h-4 w-4" />
               Novo Produto
@@ -163,7 +170,7 @@ const Dashboard = () => {
               <p className="text-muted-foreground mb-4">
                 {searchTerm ? "Tente ajustar os filtros de busca." : "Comece criando seu primeiro produto."}
               </p>
-              {!searchTerm && user?.role === "CLIENTE" && (
+              {!searchTerm && canCreateProduct && (
                 <Button onClick={() => setCreateOpen(true)}>
                   <Plus className="h-4 w-4 mr-2" />
                   Criar Primeiro Produto

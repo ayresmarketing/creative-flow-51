@@ -122,6 +122,26 @@ async function uploadFile(
   return data.id;
 }
 
+async function deleteFilesByName(accessToken: string, parentId: string, fileName: string) {
+  const q = `'${parentId}' in parents and name='${fileName}' and trashed=false`;
+  const res = await fetch(
+    `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name)&supportsAllDrives=true&includeItemsFromAllDrives=true`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+  const data = await res.json();
+
+  if (!Array.isArray(data.files) || data.files.length === 0) return;
+
+  await Promise.all(
+    data.files.map((file: { id: string }) =>
+      fetch(`https://www.googleapis.com/drive/v3/files/${file.id}?supportsAllDrives=true`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${accessToken}` },
+      })
+    )
+  );
+}
+
 function getFileExtension(filePath: string): string {
   const parts = filePath.split(".");
   return parts.length > 1 ? "." + parts[parts.length - 1] : "";
@@ -203,7 +223,7 @@ serve(async (req) => {
       }
 
       case "upload_creative": {
-        const { productId, creativeType, objective, files, creativeCode } = params;
+        const { productId, creativeType, objective, files, creativeCode, replaceExisting } = params;
 
         const { data: productFolder } = await supabase
           .from("google_drive_folders")
@@ -233,6 +253,10 @@ serve(async (req) => {
             const driveFileName = files.length > 1
               ? `${creativeCode}_${i + 1}${ext}`
               : `${creativeCode}${ext}`;
+
+            if (replaceExisting) {
+              await deleteFilesByName(accessToken, targetFolderId, driveFileName);
+            }
 
             const driveFileId = await uploadFile(
               accessToken,

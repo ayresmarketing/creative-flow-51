@@ -47,6 +47,14 @@ const CreativeResubmitDialog = ({
 
     setSaving(true);
     try {
+      const { data: creativeData, error: creativeError } = await supabase
+        .from("creatives")
+        .select("product_id, type, objective")
+        .eq("id", creativeId)
+        .single();
+
+      if (creativeError || !creativeData) throw creativeError ?? new Error("Criativo não encontrado");
+
       // Delete old files from storage and DB
       const { data: oldFiles } = await supabase
         .from("creative_files")
@@ -72,9 +80,9 @@ const CreativeResubmitDialog = ({
       for (let i = 0; i < uploads.length; i++) {
         const { file, format } = uploads[i];
         const ext = file.name.split(".").pop() || "jpg";
-        const path = `${creativeId}/${format.toLowerCase()}_${Date.now()}.${ext}`;
+        const path = `${creativeData.product_id}/${creativeId}/${format}/${creativeCode}.${ext}`;
 
-        await supabase.storage.from("creatives").upload(path, file);
+        await supabase.storage.from("creatives").upload(path, file, { upsert: true });
         await supabase.from("creative_files").insert({
           creative_id: creativeId,
           file_path: path,
@@ -82,6 +90,27 @@ const CreativeResubmitDialog = ({
           format,
           file_size: file.size,
           position: i,
+        });
+      }
+
+      const { data: uploadedFiles } = await supabase
+        .from("creative_files")
+        .select("file_path, file_name")
+        .eq("creative_id", creativeId)
+        .order("position", { ascending: true })
+        .order("format", { ascending: true });
+
+      if (uploadedFiles && uploadedFiles.length > 0) {
+        await supabase.functions.invoke("google-drive-operations", {
+          body: {
+            action: "upload_creative",
+            productId: creativeData.product_id,
+            creativeType: creativeData.type,
+            objective: creativeData.objective,
+            creativeCode,
+            replaceExisting: true,
+            files: uploadedFiles,
+          },
         });
       }
 

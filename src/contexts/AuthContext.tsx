@@ -10,6 +10,11 @@ export interface AppUser {
   email: string;
   role: UserRole;
   clientId?: string;
+  clientName?: string;
+  clientLogoUrl?: string | null;
+  teamRole?: "admin" | "colaborador";
+  isTeamMember?: boolean;
+  avatarUrl?: string | null;
 }
 
 interface AuthContextType {
@@ -49,25 +54,30 @@ async function fetchAppUser(authUser: User): Promise<AppUser | null> {
   const role = roleData.role === "gestor" ? "GESTOR" : "CLIENTE";
   const normalizedEmail = (profile?.email || authUser.email || "").trim().toLowerCase();
 
-  // If cliente, fetch client record (own or via team membership)
   let clientId: string | undefined;
+  let clientName: string | undefined;
+  let clientLogoUrl: string | null = null;
+  let teamRole: "admin" | "colaborador" | undefined;
+  let isTeamMember = false;
+  let avatarUrl: string | null = null;
+
   if (role === "CLIENTE") {
     const [clientByUser, teamMemberByUser, clientByEmail, teamMemberByEmail] = await Promise.all([
       supabase
         .from("clients")
-        .select("id")
+        .select("id, name, logo_url")
         .eq("user_id", authUser.id)
         .maybeSingle(),
       supabase
         .from("client_team_members")
-        .select("client_id")
+        .select("client_id, team_role, avatar_url, member_name")
         .eq("user_id", authUser.id)
         .limit(1)
         .maybeSingle(),
       normalizedEmail
         ? supabase
             .from("clients")
-            .select("id")
+            .select("id, name, logo_url")
             .eq("email", normalizedEmail)
             .limit(1)
             .maybeSingle()
@@ -75,27 +85,53 @@ async function fetchAppUser(authUser: User): Promise<AppUser | null> {
       normalizedEmail
         ? supabase
             .from("client_team_members")
-            .select("client_id")
+            .select("client_id, team_role, avatar_url, member_name")
             .eq("email", normalizedEmail)
             .limit(1)
             .maybeSingle()
         : Promise.resolve({ data: null, error: null }),
     ]);
 
+    const teamMembership = teamMemberByUser.data || teamMemberByEmail.data || null;
+    const ownedClient = clientByUser.data || clientByEmail.data || null;
+
     clientId =
-      clientByUser.data?.id ||
-      teamMemberByUser.data?.client_id ||
-      clientByEmail.data?.id ||
-      teamMemberByEmail.data?.client_id ||
+      ownedClient?.id ||
+      teamMembership?.client_id ||
       undefined;
+
+    if (teamMembership) {
+      isTeamMember = true;
+      teamRole = teamMembership.team_role as "admin" | "colaborador" | undefined;
+      avatarUrl = teamMembership.avatar_url || null;
+    }
+
+    if (ownedClient) {
+      clientName = ownedClient.name;
+      clientLogoUrl = ownedClient.logo_url || null;
+    } else if (clientId) {
+      const { data: teamClient } = await supabase
+        .from("clients")
+        .select("name, logo_url")
+        .eq("id", clientId)
+        .maybeSingle();
+
+      clientName = teamClient?.name;
+      clientLogoUrl = teamClient?.logo_url || null;
+    }
   }
 
   return {
     id: authUser.id,
-    name: profile?.name || authUser.email || "",
+    name: profile?.name || authUser.user_metadata?.name || authUser.email || "",
     email: profile?.email || authUser.email || "",
     role,
     clientId,
+    clientName,
+    clientLogoUrl,
+    teamRole,
+    isTeamMember,
+    avatarUrl,
   };
 }
 

@@ -644,6 +644,7 @@ const ProductDetail = () => {
                           <div onClick={(e) => e.stopPropagation()}>
                             <CreativeApprovalBadge
                               creativeId={creative.id}
+                              creativeCode={creative.code}
                               approvalStatus={creative.approval_status}
                               isCollaborator={isCollaborator}
                               formats={creative.formats}

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -10,10 +10,11 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { UserPlus, Copy, Check, Shield, Users } from "lucide-react";
+import { UserPlus, Copy, Check, Shield, Users, Upload, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 function generatePassword(length = 12): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%&*";
@@ -42,6 +43,27 @@ const AddTeamMemberDialog = ({ open, onOpenChange, clientId, clientName, onAdded
   const [saving, setSaving] = useState(false);
   const [generatedPassword, setGeneratedPassword] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const parseFunctionError = async (error: any) => {
+    const response = error?.context;
+    if (response && typeof response.json === "function") {
+      try {
+        const payload = await response.json();
+        return payload?.error || error.message;
+      } catch {
+        return error.message;
+      }
+    }
+    return error?.message || "Erro inesperado";
+  };
+
+  const handleAvatarSelect = (file: File | null) => {
+    setAvatarFile(file);
+    setAvatarPreview(file ? URL.createObjectURL(file) : null);
+  };
 
   const handleSave = async () => {
     if (!name.trim() || !email.trim() || !selectedRole) {
@@ -57,23 +79,43 @@ const AddTeamMemberDialog = ({ open, onOpenChange, clientId, clientName, onAdded
         body: { name: name.trim(), email: email.trim(), password, role: "cliente", is_team_member: true },
       });
 
-      if (response.error) throw new Error(response.error.message);
+      if (response.error) throw response.error;
 
       const userId = response.data.user_id;
 
-      await (supabase as any).from("client_team_members").insert({
+      const { data: insertedMember, error: memberError } = await (supabase as any).from("client_team_members").insert({
         client_id: clientId,
         email: email.trim(),
         user_id: userId,
         team_role: selectedRole,
-      });
+        member_name: name.trim(),
+      }).select("id").single();
+
+      if (memberError) throw memberError;
+
+      if (avatarFile && insertedMember?.id) {
+        const ext = avatarFile.name.split(".").pop() || "jpg";
+        const path = `team-members/${userId}/avatar.${ext}`;
+        const { error: uploadError } = await supabase.storage
+          .from("client-logos")
+          .upload(path, avatarFile, { upsert: true });
+
+        if (!uploadError) {
+          const { data: urlData } = supabase.storage.from("client-logos").getPublicUrl(path);
+          await (supabase as any)
+            .from("client_team_members")
+            .update({ avatar_url: urlData.publicUrl })
+            .eq("id", insertedMember.id);
+        }
+      }
 
       setGeneratedPassword(password);
       setStep("done");
       toast({ title: "Membro adicionado com sucesso!" });
       onAdded?.();
     } catch (err: any) {
-      toast({ title: "Erro", description: err.message, variant: "destructive" });
+      const message = await parseFunctionError(err);
+      toast({ title: "Erro", description: message, variant: "destructive" });
     } finally {
       setSaving(false);
     }
@@ -94,6 +136,9 @@ const AddTeamMemberDialog = ({ open, onOpenChange, clientId, clientName, onAdded
     setEmail("");
     setGeneratedPassword(null);
     setCopied(false);
+    setAvatarFile(null);
+    setAvatarPreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
     onOpenChange(false);
   };
 
@@ -162,6 +207,35 @@ const AddTeamMemberDialog = ({ open, onOpenChange, clientId, clientName, onAdded
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Foto do membro (opcional)</Label>
+                <div className="flex items-center gap-4">
+                  <Avatar className="h-16 w-16 border border-border">
+                    {avatarPreview ? (
+                      <AvatarImage src={avatarPreview} alt="Prévia" className="object-cover" />
+                    ) : null}
+                    <AvatarFallback>Foto</AvatarFallback>
+                  </Avatar>
+                  <div className="flex flex-col gap-2">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => handleAvatarSelect(e.target.files?.[0] || null)}
+                    />
+                    <Button type="button" variant="outline" size="sm" className="gap-2" onClick={() => fileInputRef.current?.click()}>
+                      <Upload className="h-4 w-4" />
+                      {avatarFile ? "Trocar foto" : "Selecionar foto"}
+                    </Button>
+                    {avatarFile ? (
+                      <Button type="button" variant="ghost" size="sm" className="gap-2 text-destructive hover:text-destructive" onClick={() => handleAvatarSelect(null)}>
+                        <X className="h-4 w-4" /> Remover
+                      </Button>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="member-name">Nome</Label>
                 <Input
