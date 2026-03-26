@@ -16,6 +16,7 @@ import SwipeFiles from "./pages/SwipeFiles";
 import ClientReport from "./pages/ClientReport";
 import GestorClientReport from "./pages/GestorClientReport";
 import TeamPage from "./pages/TeamPage";
+import Avisos from "./pages/Avisos";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
