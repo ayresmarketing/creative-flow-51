@@ -40,26 +40,32 @@ export type Database = {
       }
       client_team_members: {
         Row: {
+          avatar_url: string | null
           client_id: string
           created_at: string
           email: string
           id: string
+          member_name: string | null
           team_role: string
           user_id: string | null
         }
         Insert: {
+          avatar_url?: string | null
           client_id: string
           created_at?: string
           email: string
           id?: string
+          member_name?: string | null
           team_role?: string
           user_id?: string | null
         }
         Update: {
+          avatar_url?: string | null
           client_id?: string
           created_at?: string
           email?: string
           id?: string
+          member_name?: string | null
           team_role?: string
           user_id?: string | null
         }
