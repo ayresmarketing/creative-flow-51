@@ -646,7 +646,9 @@ const ProductDetail = () => {
                               creativeId={creative.id}
                               approvalStatus={creative.approval_status}
                               isCollaborator={isCollaborator}
+                              formats={creative.formats}
                               onStatusChanged={(s) => setCreatives(prev => prev.map(c => c.id === creative.id ? { ...c, approval_status: s } : c))}
+                              onResubmit={() => fetchData()}
                             />
                           </div>
                         )}
