@@ -17,7 +17,8 @@ import {
   Layers,
   Menu,
   X,
-  BarChart3
+  BarChart3,
+  Bell
 } from "lucide-react";
 
 interface LayoutProps {
