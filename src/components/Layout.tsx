@@ -17,7 +17,8 @@ import {
   Layers,
   Menu,
   X,
-  BarChart3
+  BarChart3,
+  Bell
 } from "lucide-react";
 
 interface LayoutProps {
@@ -58,6 +59,7 @@ const Layout = ({ children }: LayoutProps) => {
         { name: "Gestores", href: "/gestores", icon: Shield },
         { name: "Conteúdos", href: "/conteudos", icon: BookOpen },
         { name: "Swipe Files", href: "/swipe-files", icon: Layers },
+        { name: "Avisos", href: "/avisos", icon: Bell },
       ]
     : [
         { name: "Produtos", href: "/products", icon: FolderOpen },
@@ -65,6 +67,7 @@ const Layout = ({ children }: LayoutProps) => {
         { name: "Swipe Files", href: "/swipe-files", icon: Layers },
         { name: "Relatório", href: "/relatorio", icon: BarChart3 },
         { name: "Equipe", href: "/equipe", icon: Users },
+        { name: "Avisos", href: "/avisos", icon: Bell },
       ];
 
   const handleLogout = () => {
