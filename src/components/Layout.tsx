@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
 import ayresLogo from "@/assets/ayres-logo.png";
 import { 
   FolderOpen, 
@@ -29,22 +28,7 @@ const Layout = ({ children }: LayoutProps) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
-  const [clientLogoUrl, setClientLogoUrl] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-  useEffect(() => {
-    setClientLogoUrl(null);
-    if (user?.role === "CLIENTE" && user.clientId) {
-      (supabase as any)
-        .from("clients")
-        .select("logo_url")
-        .eq("id", user.clientId)
-        .maybeSingle()
-        .then(({ data }: { data: { logo_url: string | null } | null }) => {
-          setClientLogoUrl(data?.logo_url || null);
-        });
-    }
-  }, [user]);
 
   // Close mobile menu on route change
   useEffect(() => {
@@ -52,6 +36,8 @@ const Layout = ({ children }: LayoutProps) => {
   }, [location.pathname]);
 
   const isActive = (path: string) => location.pathname === path || location.pathname.startsWith(path + "/");
+  const isCollaborator = user?.isTeamMember && user?.teamRole === "colaborador";
+  const avatarSrc = user?.avatarUrl || user?.clientLogoUrl || null;
 
   const navigation = user?.role === "GESTOR"
     ? [
@@ -66,7 +52,7 @@ const Layout = ({ children }: LayoutProps) => {
         { name: "Conteúdos", href: "/conteudos", icon: BookOpen },
         { name: "Swipe Files", href: "/swipe-files", icon: Layers },
         { name: "Relatório", href: "/relatorio", icon: BarChart3 },
-        { name: "Equipe", href: "/equipe", icon: Users },
+        ...(!isCollaborator ? [{ name: "Equipe", href: "/equipe", icon: Users }] : []),
         { name: "Avisos", href: "/avisos", icon: Bell },
       ];
 
@@ -90,8 +76,8 @@ const Layout = ({ children }: LayoutProps) => {
       <div className="px-6 py-4 border-b border-border">
         <div className="flex items-center gap-3">
           <Avatar className="h-10 w-10">
-            {clientLogoUrl ? (
-              <AvatarImage src={clientLogoUrl} alt={user?.name} className="object-cover" />
+            {avatarSrc ? (
+              <AvatarImage src={avatarSrc} alt={user?.name} className="object-cover" />
             ) : null}
             <AvatarFallback>
               <User className="h-5 w-5" />
@@ -101,13 +87,18 @@ const Layout = ({ children }: LayoutProps) => {
             <p className="font-medium text-sm text-foreground truncate">
               {user?.name || "Usuário"}
             </p>
+            {isCollaborator && user?.clientName ? (
+              <p className="mt-1 text-xs text-muted-foreground truncate">
+                Colaborador de {user.clientName}
+              </p>
+            ) : null}
             <div className="flex items-center gap-2 mt-1">
               <Badge 
                 variant={user?.role === "GESTOR" ? "default" : "secondary"}
                 className="text-xs"
               >
                 {user?.role === "GESTOR" && <Crown className="h-3 w-3 mr-1" />}
-                {user?.role || "—"}
+                {isCollaborator ? "COLABORADOR" : user?.role || "—"}
               </Badge>
             </div>
           </div>

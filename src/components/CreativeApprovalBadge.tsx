@@ -15,6 +15,7 @@ import CreativeResubmitDialog from "./CreativeResubmitDialog";
 
 interface CreativeApprovalBadgeProps {
   creativeId: string;
+  creativeCode: string;
   approvalStatus: string;
   isCollaborator?: boolean;
   formats?: string[];
@@ -23,7 +24,7 @@ interface CreativeApprovalBadgeProps {
 }
 
 const CreativeApprovalBadge = ({
-  creativeId, approvalStatus, isCollaborator = false, formats = [],
+  creativeId, creativeCode, approvalStatus, isCollaborator = false, formats = [],
   onStatusChanged, onResubmit,
 }: CreativeApprovalBadgeProps) => {
   const { user } = useAuth();
@@ -186,7 +187,7 @@ const CreativeApprovalBadge = ({
         open={resubmitDialogOpen}
         onOpenChange={setResubmitDialogOpen}
         creativeId={creativeId}
-        creativeCode=""
+        creativeCode={creativeCode}
         formats={formats}
         onResubmitted={() => {
           onStatusChanged?.("pending");
