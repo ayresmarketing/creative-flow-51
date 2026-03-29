@@ -2,6 +2,7 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { invokeGoogleDriveOperation } from "@/lib/googleDrive";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -67,8 +68,11 @@ const CreativeResubmitDialog = ({
 
       for (const old of (oldFiles || [])) {
         if (filesToReplace.includes(old.format)) {
-          await supabase.storage.from("creatives").remove([old.file_path]);
-          await supabase.from("creative_files").delete().eq("id", old.id);
+          const { error: storageRemoveError } = await supabase.storage.from("creatives").remove([old.file_path]);
+          if (storageRemoveError) throw storageRemoveError;
+
+          const { error: fileDeleteError } = await supabase.from("creative_files").delete().eq("id", old.id);
+          if (fileDeleteError) throw fileDeleteError;
         }
       }
 
@@ -82,8 +86,10 @@ const CreativeResubmitDialog = ({
         const ext = file.name.split(".").pop() || "jpg";
         const path = `${creativeData.product_id}/${creativeId}/${format}/${creativeCode}.${ext}`;
 
-        await supabase.storage.from("creatives").upload(path, file, { upsert: true });
-        await supabase.from("creative_files").insert({
+        const { error: uploadError } = await supabase.storage.from("creatives").upload(path, file, { upsert: true });
+        if (uploadError) throw uploadError;
+
+        const { error: insertError } = await supabase.from("creative_files").insert({
           creative_id: creativeId,
           file_path: path,
           file_name: file.name,
@@ -91,6 +97,7 @@ const CreativeResubmitDialog = ({
           file_size: file.size,
           position: i,
         });
+        if (insertError) throw insertError;
       }
 
       const { data: uploadedFiles } = await supabase
@@ -101,16 +108,14 @@ const CreativeResubmitDialog = ({
         .order("format", { ascending: true });
 
       if (uploadedFiles && uploadedFiles.length > 0) {
-        await supabase.functions.invoke("google-drive-operations", {
-          body: {
-            action: "upload_creative",
-            productId: creativeData.product_id,
-            creativeType: creativeData.type,
-            objective: creativeData.objective,
-            creativeCode,
-            replaceExisting: true,
-            files: uploadedFiles,
-          },
+        await invokeGoogleDriveOperation({
+          action: "upload_creative",
+          productId: creativeData.product_id,
+          creativeType: creativeData.type,
+          objective: creativeData.objective,
+          creativeCode,
+          replaceExisting: true,
+          files: uploadedFiles,
         });
       }
 

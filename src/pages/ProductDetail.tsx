@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import Layout from "@/components/Layout";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { invokeGoogleDriveOperation } from "@/lib/googleDrive";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -154,6 +155,26 @@ const ProductDetail = () => {
 
   const handleDelete = async () => {
     if (!deleteCreativeId) return;
+    const creativeToDelete = creatives.find((creative) => creative.id === deleteCreativeId);
+    if (!creativeToDelete || !id) return;
+
+    try {
+      await invokeGoogleDriveOperation({
+        action: "delete_creative",
+        productId: id,
+        creativeType: creativeToDelete.type,
+        objective: creativeToDelete.objective,
+        creativeCode: creativeToDelete.code,
+      });
+    } catch (driveError: any) {
+      toast({
+        title: "Erro ao excluir no Google Drive",
+        description: driveError?.message || "Tente novamente.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const { data: files } = await supabase
       .from("creative_files")
       .select("file_path")

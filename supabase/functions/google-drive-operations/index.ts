@@ -8,6 +8,18 @@ const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const OBJECTIVES = ["Vendas", "Conteúdo", "Lembrete", "Remarketing", "Captação", "Carrinho Aberto", "Outro"];
 const MEDIA_TYPES = ["Fotos", "Vídeos", "Carrosséis"];
 
+function escapeDriveQueryValue(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+}
+
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function getMediaSubfolder(creativeType: string): string {
+  return creativeType === "PHOTO" ? "Fotos" : creativeType === "VIDEO" ? "Vídeos" : "Carrosséis";
+}
+
 async function getAccessToken(supabase: any): Promise<string> {
   const { data: tokenRow } = await supabase
     .from("google_drive_tokens")
@@ -122,6 +134,67 @@ async function uploadFile(
   return data.id;
 }
 
+async function uploadFileResumable(
+  accessToken: string,
+  fileName: string,
+  fileBody: ReadableStream<Uint8Array>,
+  mimeType: string,
+  parentId: string,
+  fileSize?: number,
+): Promise<string> {
+  const initHeaders: Record<string, string> = {
+    Authorization: `Bearer ${accessToken}`,
+    "Content-Type": "application/json; charset=UTF-8",
+    "X-Upload-Content-Type": mimeType,
+  };
+
+  if (fileSize) {
+    initHeaders["X-Upload-Content-Length"] = `${fileSize}`;
+  }
+
+  const initRes = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&supportsAllDrives=true", {
+    method: "POST",
+    headers: initHeaders,
+    body: JSON.stringify({
+      name: fileName,
+      parents: [parentId],
+    }),
+  });
+
+  if (!initRes.ok) {
+    const errorData = await initRes.json().catch(() => ({}));
+    throw new Error(`Erro ao iniciar upload resumable: ${JSON.stringify(errorData)}`);
+  }
+
+  const uploadUrl = initRes.headers.get("location");
+  if (!uploadUrl) {
+    throw new Error("Google Drive não retornou a URL de upload resumable");
+  }
+
+  const uploadHeaders: Record<string, string> = {
+    Authorization: `Bearer ${accessToken}`,
+    "Content-Type": mimeType,
+  };
+
+  if (fileSize) {
+    uploadHeaders["Content-Length"] = `${fileSize}`;
+  }
+
+  const uploadRes = await fetch(uploadUrl, {
+    method: "PUT",
+    headers: uploadHeaders,
+    body: fileBody,
+    duplex: "half",
+  } as RequestInit);
+
+  const uploadData = await uploadRes.json().catch(() => ({}));
+  if (!uploadRes.ok) {
+    throw new Error(`Erro ao enviar arquivo: ${JSON.stringify(uploadData)}`);
+  }
+
+  return uploadData.id;
+}
+
 async function deleteFilesByName(accessToken: string, parentId: string, fileName: string) {
   const q = `'${parentId}' in parents and name='${fileName}' and trashed=false`;
   const res = await fetch(
@@ -142,6 +215,34 @@ async function deleteFilesByName(accessToken: string, parentId: string, fileName
   );
 }
 
+async function deleteFilesByCreativeCode(accessToken: string, parentId: string, creativeCode: string) {
+  const escapedCode = escapeDriveQueryValue(creativeCode);
+  const q = `'${parentId}' in parents and name contains '${escapedCode}' and trashed=false`;
+  const res = await fetch(
+    `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name)&supportsAllDrives=true&includeItemsFromAllDrives=true`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+  const data = await res.json();
+
+  const matcher = new RegExp(`^${escapeRegex(creativeCode)}(?:_\\d+)?\\.[^.]+$`);
+  const matchingFiles = Array.isArray(data.files)
+    ? data.files.filter((file: { name: string }) => matcher.test(file.name))
+    : [];
+
+  if (matchingFiles.length === 0) return [];
+
+  await Promise.all(
+    matchingFiles.map((file: { id: string }) =>
+      fetch(`https://www.googleapis.com/drive/v3/files/${file.id}?supportsAllDrives=true`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${accessToken}` },
+      })
+    )
+  );
+
+  return matchingFiles.map((file: { id: string }) => file.id);
+}
+
 function getFileExtension(filePath: string): string {
   const parts = filePath.split(".");
   return parts.length > 1 ? "." + parts[parts.length - 1] : "";
@@ -149,6 +250,37 @@ function getFileExtension(filePath: string): string {
 
 function sanitizeFileName(name: string): string {
   return name.replace(/[/\\?%*:|"<>]/g, "_").trim();
+}
+
+function buildCreativeDriveFileName(creativeCode: string, fileNameOrPath: string, index: number, total: number): string {
+  const ext = getFileExtension(fileNameOrPath);
+  return total > 1
+    ? `${creativeCode}_${index + 1}${ext}`
+    : `${creativeCode}${ext}`;
+}
+
+async function getCreativeStorageSource(supabase: any, filePath: string) {
+  const { data: signedUrlData, error: signedUrlError } = await supabase.storage
+    .from("creatives")
+    .createSignedUrl(filePath, 120);
+
+  if (signedUrlError || !signedUrlData?.signedUrl) {
+    throw new Error(`Falha ao gerar URL assinada do storage para ${filePath}`);
+  }
+
+  const sourceResponse = await fetch(signedUrlData.signedUrl);
+  if (!sourceResponse.ok || !sourceResponse.body) {
+    throw new Error(`Falha ao baixar arquivo do storage para ${filePath}`);
+  }
+
+  const sizeHeader = sourceResponse.headers.get("content-length");
+  const parsedSize = sizeHeader ? Number(sizeHeader) : undefined;
+
+  return {
+    body: sourceResponse.body,
+    mimeType: sourceResponse.headers.get("content-type") || "application/octet-stream",
+    fileSize: parsedSize && !Number.isNaN(parsedSize) ? parsedSize : undefined,
+  };
 }
 
 serve(async (req) => {
@@ -234,42 +366,59 @@ serve(async (req) => {
         if (!productFolder) throw new Error("Pasta do produto não encontrada no Drive");
 
         // Navigate: Product > Objective > MediaType
-        const mediaSubfolder = creativeType === "PHOTO" ? "Fotos" : creativeType === "VIDEO" ? "Vídeos" : "Carrosséis";
+        const mediaSubfolder = getMediaSubfolder(creativeType);
 
         const objFolderId = await findOrCreateFolder(accessToken, productFolder.folder_id, objective);
         const targetFolderId = await findOrCreateFolder(accessToken, objFolderId, mediaSubfolder);
 
+        if (replaceExisting) {
+          await deleteFilesByCreativeCode(accessToken, targetFolderId, creativeCode);
+        }
+
         const uploadedIds: string[] = [];
         for (let i = 0; i < files.length; i++) {
           const file = files[i];
-          const { data: fileData } = await supabase.storage
-            .from("creatives")
-            .download(file.file_path);
 
-          if (fileData) {
-            const buffer = new Uint8Array(await fileData.arrayBuffer());
-            const ext = getFileExtension(file.file_name || file.file_path);
-            // Use creative code as file name
-            const driveFileName = files.length > 1
-              ? `${creativeCode}_${i + 1}${ext}`
-              : `${creativeCode}${ext}`;
+          const storageSource = await getCreativeStorageSource(supabase, file.file_path);
+          const driveFileName = buildCreativeDriveFileName(
+            creativeCode,
+            file.file_name || file.file_path,
+            i,
+            files.length,
+          );
 
-            if (replaceExisting) {
-              await deleteFilesByName(accessToken, targetFolderId, driveFileName);
-            }
-
-            const driveFileId = await uploadFile(
-              accessToken,
-              driveFileName,
-              buffer,
-              fileData.type || "application/octet-stream",
-              targetFolderId
-            );
-            uploadedIds.push(driveFileId);
-          }
+          const driveFileId = await uploadFileResumable(
+            accessToken,
+            driveFileName,
+            storageSource.body,
+            storageSource.mimeType,
+            targetFolderId,
+            storageSource.fileSize,
+          );
+          uploadedIds.push(driveFileId);
         }
 
         result = { uploadedIds };
+        break;
+      }
+
+      case "delete_creative": {
+        const { productId, creativeType, objective, creativeCode } = params;
+
+        const { data: productFolder } = await supabase
+          .from("google_drive_folders")
+          .select("folder_id")
+          .eq("product_id", productId)
+          .single();
+
+        if (!productFolder) throw new Error("Pasta do produto não encontrada no Drive");
+
+        const mediaSubfolder = getMediaSubfolder(creativeType);
+        const objFolderId = await findOrCreateFolder(accessToken, productFolder.folder_id, objective);
+        const targetFolderId = await findOrCreateFolder(accessToken, objFolderId, mediaSubfolder);
+        const deletedIds = await deleteFilesByCreativeCode(accessToken, targetFolderId, creativeCode);
+
+        result = { deletedIds };
         break;
       }
 
