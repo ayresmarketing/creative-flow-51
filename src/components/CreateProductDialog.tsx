@@ -15,6 +15,7 @@ import { ArrowLeft, ArrowRight, ShoppingBag, BookOpen, Users, Briefcase, CheckCi
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import BriefingForm, { type BriefingResponses } from "./BriefingForm";
+import { invokeGoogleDriveOperation } from "@/lib/googleDrive";
 import {
   buildBriefingText,
   getBriefingSchema,
@@ -135,33 +136,21 @@ const CreateProductDialog = ({ open, onOpenChange, clientId, onCreated }: Create
       return false;
     }
 
-    try {
-      await supabase.functions.invoke("google-drive-operations", {
-        body: {
-          action: "create_product_folder",
-          productName: productName.trim(),
-          productAcronym: acronym.trim(),
-          productId: product.id,
-          clientId,
-        },
-      });
-    } catch (driveErr) {
-      console.warn("Drive product folder creation failed (non-blocking):", driveErr);
-    }
+    await invokeGoogleDriveOperation({
+      action: "create_product_folder",
+      productName: productName.trim(),
+      productAcronym: acronym.trim(),
+      productId: product.id,
+      clientId,
+    });
 
-    try {
-      await supabase.functions.invoke("google-drive-operations", {
-        body: {
-          action: "upload_briefing",
-          productId: product.id,
-          productName: productName.trim(),
-          categoryLabel: getCategoryLabel(category),
-          briefingText: buildBriefingText(serializedBriefing, productName.trim()),
-        },
-      });
-    } catch (driveErr) {
-      console.warn("Drive briefing upload failed (non-blocking):", driveErr);
-    }
+    await invokeGoogleDriveOperation({
+      action: "upload_briefing",
+      productId: product.id,
+      productName: productName.trim(),
+      categoryLabel: getCategoryLabel(category),
+      briefingText: buildBriefingText(serializedBriefing, productName.trim()),
+    });
 
     setSaving(false);
     setCreatingState("success");

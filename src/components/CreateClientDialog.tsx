@@ -15,6 +15,7 @@ import { Copy, Check, UserPlus, Upload, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { invokeGoogleDriveOperation } from "@/lib/googleDrive";
 
 interface CreateClientDialogProps {
   open: boolean;
@@ -71,13 +72,7 @@ const CreateClientDialog = ({ open, onOpenChange, onCreated }: CreateClientDialo
 
       // Create Google Drive folder for the client
       if (clientId) {
-        try {
-          await supabase.functions.invoke("google-drive-operations", {
-            body: { action: "create_client_folder", clientName: name.trim(), clientId },
-          });
-        } catch (driveErr) {
-          console.warn("Drive folder creation failed (non-blocking):", driveErr);
-        }
+        await invokeGoogleDriveOperation({ action: "create_client_folder", clientName: name.trim(), clientId });
       }
 
       setGeneratedPassword(result.generatedPassword);
