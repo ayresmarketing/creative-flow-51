@@ -4,6 +4,8 @@ import Layout from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { invokeGoogleDriveOperation } from "@/lib/googleDrive";
+import { sanitizeStorageFileName } from "@/lib/storagePath";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -266,10 +268,14 @@ const CreativeUpload = () => {
             });
           }
 
+          const uploadedFiles: { file_path: string; file_name: string }[] = [];
+
           // Upload primary file
-          const primaryPath = `${id}/${creative.id}/${bulkPrimaryFormat}/${Date.now()}_${item.primaryFile.name}`;
-          await supabase.storage.from("creatives").upload(primaryPath, item.primaryFile);
-          await supabase.from("creative_files").insert({
+          const primaryPath = `${id}/${creative.id}/${bulkPrimaryFormat}/${Date.now()}_${sanitizeStorageFileName(item.primaryFile.name)}`;
+          const { error: primaryUploadError } = await supabase.storage.from("creatives").upload(primaryPath, item.primaryFile);
+          if (primaryUploadError) throw primaryUploadError;
+
+          const { error: primaryInsertError } = await supabase.from("creative_files").insert({
             creative_id: creative.id,
             file_path: primaryPath,
             file_name: item.primaryFile.name,
@@ -277,13 +283,18 @@ const CreativeUpload = () => {
             position: 0,
             file_size: item.primaryFile.size,
           });
+          if (primaryInsertError) throw primaryInsertError;
+
+          uploadedFiles.push({ file_path: primaryPath, file_name: item.primaryFile.name });
 
           // Upload secondary file if exists
           if (item.secondaryFile) {
             const secondaryFormat = bulkPrimaryFormat === "Feed" ? "Stories" : "Feed";
-            const secondaryPath = `${id}/${creative.id}/${secondaryFormat}/${Date.now()}_${item.secondaryFile.name}`;
-            await supabase.storage.from("creatives").upload(secondaryPath, item.secondaryFile);
-            await supabase.from("creative_files").insert({
+            const secondaryPath = `${id}/${creative.id}/${secondaryFormat}/${Date.now()}_${sanitizeStorageFileName(item.secondaryFile.name)}`;
+            const { error: secondaryUploadError } = await supabase.storage.from("creatives").upload(secondaryPath, item.secondaryFile);
+            if (secondaryUploadError) throw secondaryUploadError;
+
+            const { error: secondaryInsertError } = await supabase.from("creative_files").insert({
               creative_id: creative.id,
               file_path: secondaryPath,
               file_name: item.secondaryFile.name,
@@ -291,29 +302,23 @@ const CreativeUpload = () => {
               position: 0,
               file_size: item.secondaryFile.size,
             });
+            if (secondaryInsertError) throw secondaryInsertError;
+
+            uploadedFiles.push({ file_path: secondaryPath, file_name: item.secondaryFile.name });
           }
 
-          // Google Drive upload
-          try {
-            const { data: uploadedFiles } = await supabase
-              .from("creative_files")
-              .select("file_path, file_name")
-              .eq("creative_id", creative.id);
-            if (uploadedFiles && uploadedFiles.length > 0) {
-              await supabase.functions.invoke("google-drive-operations", {
-                body: {
-                  action: "upload_creative",
-                  productId: id,
-                  creativeType,
-                  objective,
-                  creativeCode: code,
-                  files: uploadedFiles,
-                },
-              });
-            }
-          } catch (driveErr) {
-            console.warn("Drive upload failed (non-blocking):", driveErr);
+          if (uploadedFiles.length === 0) {
+            throw new Error("Nenhum arquivo válido foi enviado para o criativo");
           }
+
+          await invokeGoogleDriveOperation({
+            action: "upload_creative",
+            productId: id,
+            creativeType,
+            objective,
+            creativeCode: code,
+            files: uploadedFiles,
+          });
         }
 
         toast({ title: `${bulkItems.length} criativos enviados com sucesso!` });
@@ -350,15 +355,16 @@ const CreativeUpload = () => {
       }
 
       const allFiles: { file: File; format: string; position: number }[] = [];
+      const uploadedFiles: { file_path: string; file_name: string }[] = [];
       feedFiles.forEach((f, i) => allFiles.push({ file: f, format: "Feed", position: i }));
       storiesFiles.forEach((f, i) => allFiles.push({ file: f, format: "Stories", position: i }));
 
       for (const { file, format, position } of allFiles) {
-        const filePath = `${id}/${creative.id}/${format}/${Date.now()}_${file.name}`;
+        const filePath = `${id}/${creative.id}/${format}/${Date.now()}_${sanitizeStorageFileName(file.name)}`;
         const { error: upErr } = await supabase.storage.from("creatives").upload(filePath, file);
-        if (upErr) continue;
+        if (upErr) throw upErr;
 
-        await supabase.from("creative_files").insert({
+        const { error: fileInsertError } = await supabase.from("creative_files").insert({
           creative_id: creative.id,
           file_path: filePath,
           file_name: file.name,
@@ -366,6 +372,9 @@ const CreativeUpload = () => {
           position,
           file_size: file.size,
         });
+        if (fileInsertError) throw fileInsertError;
+
+        uploadedFiles.push({ file_path: filePath, file_name: file.name });
       }
 
       if (roteiroId && creative) {
@@ -379,32 +388,23 @@ const CreativeUpload = () => {
           .eq("id", roteiroId);
       }
 
-      try {
-        const { data: uploadedFiles } = await supabase
-          .from("creative_files")
-          .select("file_path, file_name")
-          .eq("creative_id", creative.id);
-
-        if (uploadedFiles && uploadedFiles.length > 0) {
-          await supabase.functions.invoke("google-drive-operations", {
-            body: {
-              action: "upload_creative",
-              productId: id,
-              creativeType,
-              objective,
-              creativeCode: code,
-              files: uploadedFiles,
-            },
-          });
-        }
-      } catch (driveErr) {
-        console.warn("Drive upload failed (non-blocking):", driveErr);
+      if (uploadedFiles.length === 0) {
+        throw new Error("Nenhum arquivo válido foi enviado para o criativo");
       }
+
+      await invokeGoogleDriveOperation({
+        action: "upload_creative",
+        productId: id,
+        creativeType,
+        objective,
+        creativeCode: code,
+        files: uploadedFiles,
+      });
 
       toast({ title: "Criativo enviado com sucesso!" });
       navigate(`/products/${id}`);
     } catch (err: any) {
-      toast({ title: "Erro ao enviar criativo", description: "Tente novamente.", variant: "destructive" });
+      toast({ title: "Erro ao enviar criativo", description: err?.message || "Tente novamente.", variant: "destructive" });
     } finally {
       setSubmitting(false);
     }

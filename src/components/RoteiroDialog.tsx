@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
+import { invokeGoogleDriveOperation } from "@/lib/googleDrive";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -83,19 +84,13 @@ const RoteiroDialog = ({ open, onOpenChange, productId, roteiro, mode, onSaved, 
         if (error) throw error;
       }
 
-      try {
-        await supabase.functions.invoke("google-drive-operations", {
-          body: {
-            action: "upload_roteiro",
-            productId,
-            title: title.trim(),
-            content: content.trim(),
-            referenceLinks,
-          },
-        });
-      } catch (driveErr) {
-        console.warn("Drive roteiro upload failed (non-blocking):", driveErr);
-      }
+      await invokeGoogleDriveOperation({
+        action: "upload_roteiro",
+        productId,
+        title: title.trim(),
+        content: content.trim(),
+        referenceLinks,
+      });
 
       toast({ title: roteiro && mode === "edit" ? "Roteiro atualizado!" : "Roteiro criado!" });
       onSaved();
