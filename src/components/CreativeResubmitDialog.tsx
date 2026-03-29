@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { invokeGoogleDriveOperation } from "@/lib/googleDrive";
+import { sanitizeStorageFileName } from "@/lib/storagePath";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -84,7 +85,8 @@ const CreativeResubmitDialog = ({
       for (let i = 0; i < uploads.length; i++) {
         const { file, format } = uploads[i];
         const ext = file.name.split(".").pop() || "jpg";
-        const path = `${creativeData.product_id}/${creativeId}/${format}/${creativeCode}.${ext}`;
+        const safeCode = sanitizeStorageFileName(creativeCode);
+        const path = `${creativeData.product_id}/${creativeId}/${format}/${safeCode}.${ext}`;
 
         const { error: uploadError } = await supabase.storage.from("creatives").upload(path, file, { upsert: true });
         if (uploadError) throw uploadError;

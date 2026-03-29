@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { invokeGoogleDriveOperation } from "@/lib/googleDrive";
+import { sanitizeStorageFileName } from "@/lib/storagePath";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -270,7 +271,7 @@ const CreativeUpload = () => {
           const uploadedFiles: { file_path: string; file_name: string }[] = [];
 
           // Upload primary file
-          const primaryPath = `${id}/${creative.id}/${bulkPrimaryFormat}/${Date.now()}_${item.primaryFile.name}`;
+          const primaryPath = `${id}/${creative.id}/${bulkPrimaryFormat}/${Date.now()}_${sanitizeStorageFileName(item.primaryFile.name)}`;
           const { error: primaryUploadError } = await supabase.storage.from("creatives").upload(primaryPath, item.primaryFile);
           if (primaryUploadError) throw primaryUploadError;
 
@@ -289,7 +290,7 @@ const CreativeUpload = () => {
           // Upload secondary file if exists
           if (item.secondaryFile) {
             const secondaryFormat = bulkPrimaryFormat === "Feed" ? "Stories" : "Feed";
-            const secondaryPath = `${id}/${creative.id}/${secondaryFormat}/${Date.now()}_${item.secondaryFile.name}`;
+            const secondaryPath = `${id}/${creative.id}/${secondaryFormat}/${Date.now()}_${sanitizeStorageFileName(item.secondaryFile.name)}`;
             const { error: secondaryUploadError } = await supabase.storage.from("creatives").upload(secondaryPath, item.secondaryFile);
             if (secondaryUploadError) throw secondaryUploadError;
 
@@ -359,7 +360,7 @@ const CreativeUpload = () => {
       storiesFiles.forEach((f, i) => allFiles.push({ file: f, format: "Stories", position: i }));
 
       for (const { file, format, position } of allFiles) {
-        const filePath = `${id}/${creative.id}/${format}/${Date.now()}_${file.name}`;
+        const filePath = `${id}/${creative.id}/${format}/${Date.now()}_${sanitizeStorageFileName(file.name)}`;
         const { error: upErr } = await supabase.storage.from("creatives").upload(filePath, file);
         if (upErr) throw upErr;
 
