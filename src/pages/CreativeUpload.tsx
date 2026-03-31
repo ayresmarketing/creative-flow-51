@@ -328,14 +328,22 @@ const CreativeUpload = () => {
             creativeCode: code,
             files: uploadedFiles,
           });
+
+          setUploadCurrent(i + 1);
+          setUploadProgress(Math.round(((i + 1) / bulkItems.length) * 100));
         }
 
-        toast({ title: `${bulkItems.length} criativos enviados com sucesso!` });
-        navigate(`/products/${id}`);
+        setUploadDone(true);
+        setTimeout(() => {
+          toast({ title: `${bulkItems.length} criativos enviados com sucesso!` });
+          navigate(`/products/${id}`);
+        }, 1200);
         return;
       }
 
       // Single submit (existing logic)
+      setUploadTotal(1);
+      setUploadCurrent(0);
       const code = generatedCode || buildCreativeCode(currentMaxSequence + 1);
       if (!code) throw new Error("Falha ao gerar código do criativo");
 
