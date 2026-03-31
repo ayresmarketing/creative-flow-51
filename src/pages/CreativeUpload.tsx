@@ -418,8 +418,13 @@ const CreativeUpload = () => {
         files: uploadedFiles,
       });
 
-      toast({ title: "Criativo enviado com sucesso!" });
-      navigate(`/products/${id}`);
+      setUploadCurrent(1);
+      setUploadProgress(100);
+      setUploadDone(true);
+      setTimeout(() => {
+        toast({ title: "Criativo enviado com sucesso!" });
+        navigate(`/products/${id}`);
+      }, 1200);
     } catch (err: any) {
       toast({ title: "Erro ao enviar criativo", description: err?.message || "Tente novamente.", variant: "destructive" });
     } finally {
