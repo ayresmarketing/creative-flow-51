@@ -17,7 +17,10 @@ import {
   Menu,
   X,
   BarChart3,
-  Bell
+  Bell,
+  Calculator,
+  CheckSquare,
+  Settings
 } from "lucide-react";
 
 interface LayoutProps {
