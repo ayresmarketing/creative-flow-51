@@ -16,7 +16,7 @@ const Settings = () => {
   const { toast } = useToast();
 
   const [simulatorUrl, setSimulatorUrl] = useState("");
-  const [clickupUrl, setClickupUrl] = useState("");
+  
   const [savingSimulator, setSavingSimulator] = useState(false);
   const [savingClickup, setSavingClickup] = useState(false);
 
