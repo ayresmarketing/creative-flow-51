@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { Progress } from "@/components/ui/progress";
 import Layout from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -45,6 +46,10 @@ const CreativeUpload = () => {
   const [isDragOverFeed, setIsDragOverFeed] = useState(false);
   const [isDragOverStories, setIsDragOverStories] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadTotal, setUploadTotal] = useState(0);
+  const [uploadCurrent, setUploadCurrent] = useState(0);
+  const [uploadDone, setUploadDone] = useState(false);
 
   // Bulk mode
   const [bulkMode, setBulkMode] = useState(false);
@@ -225,9 +230,14 @@ const CreativeUpload = () => {
   const handleSubmit = async () => {
     if (!id || !creativeType || !objective || submitting) return;
     setSubmitting(true);
+    setUploadDone(false);
+    setUploadProgress(0);
+    setUploadCurrent(0);
 
     try {
       const currentMaxSequence = await getCurrentMaxSequence();
+      const totalItems = bulkMode ? bulkItems.length : 1;
+      setUploadTotal(totalItems);
 
       if (bulkMode) {
         // Bulk submit - create one creative per item
@@ -319,14 +329,22 @@ const CreativeUpload = () => {
             creativeCode: code,
             files: uploadedFiles,
           });
+
+          setUploadCurrent(i + 1);
+          setUploadProgress(Math.round(((i + 1) / bulkItems.length) * 100));
         }
 
-        toast({ title: `${bulkItems.length} criativos enviados com sucesso!` });
-        navigate(`/products/${id}`);
+        setUploadDone(true);
+        setTimeout(() => {
+          toast({ title: `${bulkItems.length} criativos enviados com sucesso!` });
+          navigate(`/products/${id}`);
+        }, 1200);
         return;
       }
 
       // Single submit (existing logic)
+      setUploadTotal(1);
+      setUploadCurrent(0);
       const code = generatedCode || buildCreativeCode(currentMaxSequence + 1);
       if (!code) throw new Error("Falha ao gerar código do criativo");
 
@@ -359,7 +377,8 @@ const CreativeUpload = () => {
       feedFiles.forEach((f, i) => allFiles.push({ file: f, format: "Feed", position: i }));
       storiesFiles.forEach((f, i) => allFiles.push({ file: f, format: "Stories", position: i }));
 
-      for (const { file, format, position } of allFiles) {
+      for (let fi = 0; fi < allFiles.length; fi++) {
+        const { file, format, position } = allFiles[fi];
         const filePath = `${id}/${creative.id}/${format}/${Date.now()}_${sanitizeStorageFileName(file.name)}`;
         const { error: upErr } = await supabase.storage.from("creatives").upload(filePath, file);
         if (upErr) throw upErr;
@@ -375,6 +394,7 @@ const CreativeUpload = () => {
         if (fileInsertError) throw fileInsertError;
 
         uploadedFiles.push({ file_path: filePath, file_name: file.name });
+        setUploadProgress(Math.round(((fi + 1) / allFiles.length) * 80));
       }
 
       if (roteiroId && creative) {
@@ -401,8 +421,13 @@ const CreativeUpload = () => {
         files: uploadedFiles,
       });
 
-      toast({ title: "Criativo enviado com sucesso!" });
-      navigate(`/products/${id}`);
+      setUploadCurrent(1);
+      setUploadProgress(100);
+      setUploadDone(true);
+      setTimeout(() => {
+        toast({ title: "Criativo enviado com sucesso!" });
+        navigate(`/products/${id}`);
+      }, 1200);
     } catch (err: any) {
       toast({ title: "Erro ao enviar criativo", description: err?.message || "Tente novamente.", variant: "destructive" });
     } finally {
@@ -966,9 +991,28 @@ const CreativeUpload = () => {
           <CardContent className="p-4 md:p-8">{renderStepContent()}</CardContent>
         </Card>
 
+        {/* Upload Progress */}
+        {submitting && (
+          <Card className="hub-card-shadow border-primary/30">
+            <CardContent className="p-4 space-y-3">
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-medium text-foreground">
+                  {uploadDone
+                    ? "✅ Criativos enviados com sucesso!"
+                    : uploadTotal > 1
+                      ? `Enviando... ${uploadCurrent} de ${uploadTotal}`
+                      : `Enviando... ${uploadProgress}%`}
+                </span>
+                <span className="text-muted-foreground">{uploadProgress}%</span>
+              </div>
+              <Progress value={uploadProgress} className="h-3" />
+            </CardContent>
+          </Card>
+        )}
+
         {/* Navigation */}
         <div className="flex justify-between">
-          <Button variant="outline" onClick={() => (step > 1 ? setStep(step - 1) : navigate(`/products/${id}`))}>
+          <Button variant="outline" onClick={() => (step > 1 ? setStep(step - 1) : navigate(`/products/${id}`))} disabled={submitting}>
             {step === 1 ? "Cancelar" : "Voltar"}
           </Button>
           <Button
