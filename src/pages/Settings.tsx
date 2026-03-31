@@ -16,9 +16,9 @@ const Settings = () => {
   const { toast } = useToast();
 
   const [simulatorUrl, setSimulatorUrl] = useState("");
-  const [clickupUrl, setClickupUrl] = useState("");
+  
   const [savingSimulator, setSavingSimulator] = useState(false);
-  const [savingClickup, setSavingClickup] = useState(false);
+  
 
   useEffect(() => {
     if (!loading && (!user || user.role !== "GESTOR")) {
@@ -30,12 +30,10 @@ const Settings = () => {
     supabase
       .from("gestor_settings")
       .select("key, value")
-      .in("key", ["simulator_url", "clickup_url"])
+      .eq("key", "simulator_url")
+      .maybeSingle()
       .then(({ data }) => {
-        data?.forEach((row: any) => {
-          if (row.key === "simulator_url") setSimulatorUrl(row.value || "");
-          if (row.key === "clickup_url") setClickupUrl(row.value || "");
-        });
+        if (data) setSimulatorUrl(data.value || "");
       });
   }, []);
 
@@ -87,27 +85,6 @@ const Settings = () => {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">URL do ClickUp</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <Label htmlFor="clickup-url">Cole a URL do ClickUp embed</Label>
-            <Input
-              id="clickup-url"
-              placeholder="https://..."
-              value={clickupUrl}
-              onChange={(e) => setClickupUrl(e.target.value)}
-            />
-            <Button
-              onClick={() => handleSave("clickup_url", clickupUrl, setSavingClickup)}
-              disabled={savingClickup}
-            >
-              {savingClickup ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
-              Salvar
-            </Button>
-          </CardContent>
-        </Card>
       </div>
     </Layout>
   );
