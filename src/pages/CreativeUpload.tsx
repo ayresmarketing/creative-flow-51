@@ -377,7 +377,8 @@ const CreativeUpload = () => {
       feedFiles.forEach((f, i) => allFiles.push({ file: f, format: "Feed", position: i }));
       storiesFiles.forEach((f, i) => allFiles.push({ file: f, format: "Stories", position: i }));
 
-      for (const { file, format, position } of allFiles) {
+      for (let fi = 0; fi < allFiles.length; fi++) {
+        const { file, format, position } = allFiles[fi];
         const filePath = `${id}/${creative.id}/${format}/${Date.now()}_${sanitizeStorageFileName(file.name)}`;
         const { error: upErr } = await supabase.storage.from("creatives").upload(filePath, file);
         if (upErr) throw upErr;
@@ -393,6 +394,7 @@ const CreativeUpload = () => {
         if (fileInsertError) throw fileInsertError;
 
         uploadedFiles.push({ file_path: filePath, file_name: file.name });
+        setUploadProgress(Math.round(((fi + 1) / allFiles.length) * 80));
       }
 
       if (roteiroId && creative) {
