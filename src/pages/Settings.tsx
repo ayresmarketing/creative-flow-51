@@ -30,12 +30,10 @@ const Settings = () => {
     supabase
       .from("gestor_settings")
       .select("key, value")
-      .in("key", ["simulator_url", "clickup_url"])
+      .eq("key", "simulator_url")
+      .maybeSingle()
       .then(({ data }) => {
-        data?.forEach((row: any) => {
-          if (row.key === "simulator_url") setSimulatorUrl(row.value || "");
-          if (row.key === "clickup_url") setClickupUrl(row.value || "");
-        });
+        if (data) setSimulatorUrl(data.value || "");
       });
   }, []);
 
