@@ -18,7 +18,7 @@ import GestorClientReport from "./pages/GestorClientReport";
 import TeamPage from "./pages/TeamPage";
 import Avisos from "./pages/Avisos";
 import Simulator from "./pages/Simulator";
-import ClickUp from "./pages/ClickUp";
+
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
