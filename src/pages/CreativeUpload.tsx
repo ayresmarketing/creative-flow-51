@@ -989,9 +989,28 @@ const CreativeUpload = () => {
           <CardContent className="p-4 md:p-8">{renderStepContent()}</CardContent>
         </Card>
 
+        {/* Upload Progress */}
+        {submitting && (
+          <Card className="hub-card-shadow border-primary/30">
+            <CardContent className="p-4 space-y-3">
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-medium text-foreground">
+                  {uploadDone
+                    ? "✅ Criativos enviados com sucesso!"
+                    : uploadTotal > 1
+                      ? `Enviando... ${uploadCurrent} de ${uploadTotal}`
+                      : `Enviando... ${uploadProgress}%`}
+                </span>
+                <span className="text-muted-foreground">{uploadProgress}%</span>
+              </div>
+              <Progress value={uploadProgress} className="h-3" />
+            </CardContent>
+          </Card>
+        )}
+
         {/* Navigation */}
         <div className="flex justify-between">
-          <Button variant="outline" onClick={() => (step > 1 ? setStep(step - 1) : navigate(`/products/${id}`))}>
+          <Button variant="outline" onClick={() => (step > 1 ? setStep(step - 1) : navigate(`/products/${id}`))} disabled={submitting}>
             {step === 1 ? "Cancelar" : "Voltar"}
           </Button>
           <Button
