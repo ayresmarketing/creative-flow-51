@@ -45,6 +45,10 @@ const CreativeUpload = () => {
   const [isDragOverFeed, setIsDragOverFeed] = useState(false);
   const [isDragOverStories, setIsDragOverStories] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadTotal, setUploadTotal] = useState(0);
+  const [uploadCurrent, setUploadCurrent] = useState(0);
+  const [uploadDone, setUploadDone] = useState(false);
 
   // Bulk mode
   const [bulkMode, setBulkMode] = useState(false);
