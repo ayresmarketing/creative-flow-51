@@ -229,9 +229,14 @@ const CreativeUpload = () => {
   const handleSubmit = async () => {
     if (!id || !creativeType || !objective || submitting) return;
     setSubmitting(true);
+    setUploadDone(false);
+    setUploadProgress(0);
+    setUploadCurrent(0);
 
     try {
       const currentMaxSequence = await getCurrentMaxSequence();
+      const totalItems = bulkMode ? bulkItems.length : 1;
+      setUploadTotal(totalItems);
 
       if (bulkMode) {
         // Bulk submit - create one creative per item
