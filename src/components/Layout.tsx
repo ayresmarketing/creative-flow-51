@@ -19,7 +19,7 @@ import {
   BarChart3,
   Bell,
   Calculator,
-  CheckSquare,
+  
   Settings
 } from "lucide-react";
 

@@ -85,27 +85,6 @@ const Settings = () => {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">URL do ClickUp</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <Label htmlFor="clickup-url">Cole a URL do ClickUp embed</Label>
-            <Input
-              id="clickup-url"
-              placeholder="https://..."
-              value={clickupUrl}
-              onChange={(e) => setClickupUrl(e.target.value)}
-            />
-            <Button
-              onClick={() => handleSave("clickup_url", clickupUrl, setSavingClickup)}
-              disabled={savingClickup}
-            >
-              {savingClickup ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
-              Salvar
-            </Button>
-          </CardContent>
-        </Card>
       </div>
     </Layout>
   );
