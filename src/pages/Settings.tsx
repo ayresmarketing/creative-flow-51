@@ -18,7 +18,7 @@ const Settings = () => {
   const [simulatorUrl, setSimulatorUrl] = useState("");
   
   const [savingSimulator, setSavingSimulator] = useState(false);
-  const [savingClickup, setSavingClickup] = useState(false);
+  
 
   useEffect(() => {
     if (!loading && (!user || user.role !== "GESTOR")) {
