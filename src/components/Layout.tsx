@@ -49,7 +49,7 @@ const Layout = ({ children }: LayoutProps) => {
         { name: "Conteúdos", href: "/conteudos", icon: BookOpen },
         { name: "Swipe Files", href: "/swipe-files", icon: Layers },
         { name: "Simulador", href: "/simulador", icon: Calculator },
-        { name: "ClickUp", href: "/clickup", icon: CheckSquare },
+        
         { name: "Avisos", href: "/avisos", icon: Bell },
         { name: "Configurações", href: "/configuracoes", icon: Settings },
       ]
