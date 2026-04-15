@@ -1,31 +1,87 @@
+import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FileText, Download } from "lucide-react";
-import { normalizeBriefingPayload } from "@/components/briefing/briefingSchemas";
+import { FileText, Download, PenLine } from "lucide-react";
+import { normalizeBriefingPayload, getBriefingSchema, serializeBriefingPayload, buildBriefingText, getCategoryLabel, type ProductCategory } from "@/components/briefing/briefingSchemas";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import BriefingForm, { type BriefingResponses } from "@/components/BriefingForm";
+import { supabase } from "@/integrations/supabase/client";
+import { invokeGoogleDriveOperation } from "@/lib/googleDrive";
+import { useToast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
 
 interface BriefingDisplayProps {
   responses: unknown;
   category?: string | null;
   productName?: string;
+  productId?: string;
+  onBriefingSaved?: () => void;
 }
 
-const BriefingDisplay = ({ responses, category, productName }: BriefingDisplayProps) => {
+const BriefingDisplay = ({ responses, category, productName, productId, onBriefingSaved }: BriefingDisplayProps) => {
   const normalized = normalizeBriefingPayload(responses, category);
+  const { toast } = useToast();
+  const [showForm, setShowForm] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const handleFillBriefing = async (briefingResponses: BriefingResponses) => {
+    if (!productId || !category) return;
+    setSaving(true);
+    const cat = category as ProductCategory;
+    const serialized = serializeBriefingPayload(cat, briefingResponses);
+    const { error } = await (supabase.from("product_briefings") as any).upsert(
+      { product_id: productId, responses: serialized, updated_at: new Date().toISOString() },
+      { onConflict: "product_id" },
+    );
+    if (error) {
+      toast({ title: "Erro ao salvar briefing", description: error.message, variant: "destructive" });
+      setSaving(false);
+      return;
+    }
+    await invokeGoogleDriveOperation({
+      action: "upload_briefing",
+      productId,
+      productName: productName || "",
+      categoryLabel: getCategoryLabel(category),
+      briefingText: buildBriefingText(serialized, productName || ""),
+    });
+    setSaving(false);
+    setShowForm(false);
+    toast({ title: "Briefing salvo com sucesso!" });
+    onBriefingSaved?.();
+  };
 
   if (!normalized) {
     return (
-      <Card className="hub-card-shadow">
-        <CardContent className="p-6">
-          <div className="text-center py-8">
-            <FileText className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-            <p className="text-muted-foreground text-sm">
-              Nenhum briefing foi preenchido para este produto.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+      <>
+        <Card className="hub-card-shadow">
+          <CardContent className="p-6">
+            <div className="text-center py-8">
+              <FileText className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+              <p className="text-muted-foreground text-sm mb-4">
+                Nenhum briefing foi preenchido para este produto.
+              </p>
+              {productId && category && (
+                <Button onClick={() => setShowForm(true)} className="gap-2">
+                  <PenLine className="h-4 w-4" /> Preencher Briefing
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+        {category && (
+          <Dialog open={showForm} onOpenChange={setShowForm}>
+            <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-hidden">
+              <DialogHeader>
+                <DialogTitle>{getBriefingSchema(category).title}</DialogTitle>
+                <DialogDescription>{getBriefingSchema(category).description}</DialogDescription>
+              </DialogHeader>
+              <BriefingForm category={category as ProductCategory} onSubmit={handleFillBriefing} saving={saving} />
+            </DialogContent>
+          </Dialog>
+        )}
+      </>
     );
   }
 
