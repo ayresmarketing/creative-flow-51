@@ -95,7 +95,7 @@ const CreateProductDialog = ({ open, onOpenChange, clientId, onCreated }: Create
     setAcronym(generateAcronym(value));
   };
 
-  const saveProduct = async (briefingData: BriefingResponses) => {
+  const saveProduct = async (briefingData?: BriefingResponses) => {
     if (!category) return false;
 
     setSaving(true);
@@ -119,21 +119,28 @@ const CreateProductDialog = ({ open, onOpenChange, clientId, onCreated }: Create
       return false;
     }
 
-    const serializedBriefing = serializeBriefingPayload(category, briefingData);
-    const { error: briefingError } = await (supabase.from("product_briefings") as any).upsert(
-      {
-        product_id: product.id,
-        responses: serializedBriefing,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "product_id" },
-    );
+    if (briefingData) {
+      const serializedBriefing = serializeBriefingPayload(category, briefingData);
+      const { error: briefingError } = await (supabase.from("product_briefings") as any).upsert(
+        {
+          product_id: product.id,
+          responses: serializedBriefing,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "product_id" },
+      );
 
-    if (briefingError) {
-      toast({ title: "Erro ao salvar briefing", description: briefingError.message, variant: "destructive" });
-      setSaving(false);
-      setCreatingState("idle");
-      return false;
+      if (briefingError) {
+        toast({ title: "Erro ao salvar briefing", description: briefingError.message, variant: "destructive" });
+      }
+
+      await invokeGoogleDriveOperation({
+        action: "upload_briefing",
+        productId: product.id,
+        productName: productName.trim(),
+        categoryLabel: getCategoryLabel(category),
+        briefingText: buildBriefingText(serializedBriefing, productName.trim()),
+      });
     }
 
     await invokeGoogleDriveOperation({
@@ -144,18 +151,14 @@ const CreateProductDialog = ({ open, onOpenChange, clientId, onCreated }: Create
       clientId,
     });
 
-    await invokeGoogleDriveOperation({
-      action: "upload_briefing",
-      productId: product.id,
-      productName: productName.trim(),
-      categoryLabel: getCategoryLabel(category),
-      briefingText: buildBriefingText(serializedBriefing, productName.trim()),
-    });
-
     setSaving(false);
     setCreatingState("success");
     onCreated?.();
     return true;
+  };
+
+  const handleSkipBriefing = async () => {
+    await saveProduct();
   };
 
   const handleCategorySelect = (value: string) => {
@@ -294,13 +297,21 @@ const CreateProductDialog = ({ open, onOpenChange, clientId, onCreated }: Create
                     Próximo <ArrowRight className="h-4 w-4 ml-1" />
                   </Button>
                 ) : (
-                  <Button
-                    className="ml-auto"
-                    disabled={!category || saving}
-                    onClick={() => setShowBriefingForm(true)}
-                  >
-                    Preencher Briefing
-                  </Button>
+                  <div className="flex gap-2 ml-auto">
+                    <Button
+                      variant="outline"
+                      disabled={!category || saving}
+                      onClick={handleSkipBriefing}
+                    >
+                      Pular Briefing
+                    </Button>
+                    <Button
+                      disabled={!category || saving}
+                      onClick={() => setShowBriefingForm(true)}
+                    >
+                      Preencher Briefing
+                    </Button>
+                  </div>
                 )}
               </DialogFooter>
             </>
