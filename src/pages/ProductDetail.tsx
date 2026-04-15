@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import {
   Plus, Search, Image, Video, Layers, MoreVertical, Calendar,
   Play, ArrowLeft, Table as TableIcon, LayoutGrid, CheckCircle2, Circle,
-  Eye, Trash2, Download, BarChart3, Clock
+  Eye, Trash2, Download, BarChart3, Clock, Megaphone
 } from "lucide-react";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
