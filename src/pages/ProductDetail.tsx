@@ -386,9 +386,23 @@ const ProductDetail = () => {
             <TabsTrigger value="roteiros">Roteiros</TabsTrigger>
             <TabsTrigger value="briefing">Briefing</TabsTrigger>
             <TabsTrigger value="conteudos">Conteúdos</TabsTrigger>
-            <TabsTrigger value="googleads">Google Ads</TabsTrigger>
             {user?.role === "GESTOR" && <TabsTrigger value="notas">Notas</TabsTrigger>}
           </TabsList>
+
+          {/* Google Ads separate highlight bar */}
+          <div className="mt-3">
+            <button
+              onClick={() => setActiveTab("googleads")}
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all border ${
+                activeTab === "googleads"
+                  ? "bg-primary text-primary-foreground border-primary shadow-md"
+                  : "bg-muted/50 text-muted-foreground border-border hover:bg-muted hover:text-foreground"
+              }`}
+            >
+              <Megaphone className="h-4 w-4" />
+              Google Ads
+            </button>
+          </div>
 
           <TabsContent value="criativos" className="space-y-6 mt-4">
             {/* Creative Stats Dashboard */}
