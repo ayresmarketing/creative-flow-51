@@ -34,6 +34,7 @@ import BriefingDisplay from "@/components/BriefingDisplay";
 import ProductContentsTab from "@/components/ProductContentsTab";
 import CreativeApprovalBadge from "@/components/CreativeApprovalBadge";
 import CreativeTimeline from "@/components/CreativeTimeline";
+import GoogleAdsTab from "@/components/GoogleAdsTab";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface Creative {
@@ -385,6 +386,7 @@ const ProductDetail = () => {
             <TabsTrigger value="roteiros">Roteiros</TabsTrigger>
             <TabsTrigger value="briefing">Briefing</TabsTrigger>
             <TabsTrigger value="conteudos">Conteúdos</TabsTrigger>
+            <TabsTrigger value="googleads">Google Ads</TabsTrigger>
             {user?.role === "GESTOR" && <TabsTrigger value="notas">Notas</TabsTrigger>}
           </TabsList>
 
@@ -712,6 +714,10 @@ const ProductDetail = () => {
 
           <TabsContent value="conteudos" className="mt-4">
             {product && <ProductContentsTab productId={product.id} />}
+          </TabsContent>
+
+          <TabsContent value="googleads" className="mt-4">
+            {product && <GoogleAdsTab productId={product.id} />}
           </TabsContent>
 
           {user?.role === "GESTOR" && (
