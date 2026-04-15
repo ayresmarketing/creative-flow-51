@@ -14,6 +14,313 @@ export type Database = {
   }
   public: {
     Tables: {
+      ad_campaign_callouts: {
+        Row: {
+          approval_status: string
+          campaign_id: string
+          created_at: string
+          id: string
+          position: number
+          text: string
+        }
+        Insert: {
+          approval_status?: string
+          campaign_id: string
+          created_at?: string
+          id?: string
+          position?: number
+          text: string
+        }
+        Update: {
+          approval_status?: string
+          campaign_id?: string
+          created_at?: string
+          id?: string
+          position?: number
+          text?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_campaign_callouts_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "ad_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ad_campaign_descriptions: {
+        Row: {
+          approval_status: string
+          campaign_id: string
+          created_at: string
+          description: string
+          id: string
+          position: number
+        }
+        Insert: {
+          approval_status?: string
+          campaign_id: string
+          created_at?: string
+          description: string
+          id?: string
+          position?: number
+        }
+        Update: {
+          approval_status?: string
+          campaign_id?: string
+          created_at?: string
+          description?: string
+          id?: string
+          position?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_campaign_descriptions_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "ad_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ad_campaign_images: {
+        Row: {
+          approval_status: string
+          campaign_id: string
+          created_at: string
+          file_name: string | null
+          file_path: string
+          id: string
+          image_type: string
+          position: number
+        }
+        Insert: {
+          approval_status?: string
+          campaign_id: string
+          created_at?: string
+          file_name?: string | null
+          file_path: string
+          id?: string
+          image_type?: string
+          position?: number
+        }
+        Update: {
+          approval_status?: string
+          campaign_id?: string
+          created_at?: string
+          file_name?: string | null
+          file_path?: string
+          id?: string
+          image_type?: string
+          position?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_campaign_images_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "ad_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ad_campaign_keywords: {
+        Row: {
+          approval_status: string
+          campaign_id: string
+          created_at: string
+          id: string
+          keyword: string
+          position: number
+          suggestion: string | null
+        }
+        Insert: {
+          approval_status?: string
+          campaign_id: string
+          created_at?: string
+          id?: string
+          keyword: string
+          position?: number
+          suggestion?: string | null
+        }
+        Update: {
+          approval_status?: string
+          campaign_id?: string
+          created_at?: string
+          id?: string
+          keyword?: string
+          position?: number
+          suggestion?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_campaign_keywords_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "ad_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ad_campaign_revisions: {
+        Row: {
+          action: string
+          actor_id: string
+          actor_name: string | null
+          campaign_id: string
+          comment: string | null
+          created_at: string
+          id: string
+          item_id: string
+          item_type: string
+        }
+        Insert: {
+          action: string
+          actor_id: string
+          actor_name?: string | null
+          campaign_id: string
+          comment?: string | null
+          created_at?: string
+          id?: string
+          item_id: string
+          item_type: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string
+          actor_name?: string | null
+          campaign_id?: string
+          comment?: string | null
+          created_at?: string
+          id?: string
+          item_id?: string
+          item_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_campaign_revisions_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "ad_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ad_campaign_sitelinks: {
+        Row: {
+          approval_status: string
+          campaign_id: string
+          created_at: string
+          description1: string
+          description2: string
+          id: string
+          position: number
+          title: string
+          url: string
+        }
+        Insert: {
+          approval_status?: string
+          campaign_id: string
+          created_at?: string
+          description1: string
+          description2: string
+          id?: string
+          position?: number
+          title: string
+          url: string
+        }
+        Update: {
+          approval_status?: string
+          campaign_id?: string
+          created_at?: string
+          description1?: string
+          description2?: string
+          id?: string
+          position?: number
+          title?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_campaign_sitelinks_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "ad_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ad_campaign_titles: {
+        Row: {
+          approval_status: string
+          campaign_id: string
+          created_at: string
+          id: string
+          position: number
+          title: string
+        }
+        Insert: {
+          approval_status?: string
+          campaign_id: string
+          created_at?: string
+          id?: string
+          position?: number
+          title: string
+        }
+        Update: {
+          approval_status?: string
+          campaign_id?: string
+          created_at?: string
+          id?: string
+          position?: number
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_campaign_titles_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "ad_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ad_campaigns: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          product_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          product_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          product_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_campaigns_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       announcements: {
         Row: {
           created_at: string
