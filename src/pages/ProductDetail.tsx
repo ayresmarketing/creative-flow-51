@@ -709,7 +709,7 @@ const ProductDetail = () => {
           </TabsContent>
 
           <TabsContent value="briefing" className="mt-4">
-            <BriefingDisplay responses={briefingData} category={product.category} productName={product.name} />
+            <BriefingDisplay responses={briefingData} category={product.category} productName={product.name} productId={product.id} onBriefingSaved={fetchData} />
           </TabsContent>
 
           <TabsContent value="conteudos" className="mt-4">
