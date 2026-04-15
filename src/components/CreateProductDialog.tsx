@@ -297,13 +297,21 @@ const CreateProductDialog = ({ open, onOpenChange, clientId, onCreated }: Create
                     Próximo <ArrowRight className="h-4 w-4 ml-1" />
                   </Button>
                 ) : (
-                  <Button
-                    className="ml-auto"
-                    disabled={!category || saving}
-                    onClick={() => setShowBriefingForm(true)}
-                  >
-                    Preencher Briefing
-                  </Button>
+                  <div className="flex gap-2 ml-auto">
+                    <Button
+                      variant="outline"
+                      disabled={!category || saving}
+                      onClick={handleSkipBriefing}
+                    >
+                      Pular Briefing
+                    </Button>
+                    <Button
+                      disabled={!category || saving}
+                      onClick={() => setShowBriefingForm(true)}
+                    >
+                      Preencher Briefing
+                    </Button>
+                  </div>
                 )}
               </DialogFooter>
             </>
