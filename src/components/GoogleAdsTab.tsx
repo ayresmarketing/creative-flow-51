@@ -8,18 +8,13 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import {
-  Plus, ArrowLeft, ArrowRight, CheckCircle2, XCircle, Pencil, Trash2,
-  Clock, Loader2, Image, Link, Type, FileText, Tag, Megaphone, Eye, MessageSquare,
+  Plus, ArrowLeft, CheckCircle2, XCircle, Pencil, Trash2,
+  Clock, Loader2, Image, Link, Type, FileText, Tag, Megaphone, MessageSquare,
 } from "lucide-react";
 
 interface GoogleAdsTabProps {
@@ -43,18 +38,18 @@ interface RevisionItem {
 
 // ─── Approval Badge ───
 const ApprovalBadge = ({ status }: { status: string }) => {
-  if (status === "approved") return <Badge className="bg-green-500/10 text-green-600 border-green-500/30 gap-1"><CheckCircle2 className="h-3 w-3" />Aprovado</Badge>;
-  if (status === "rejected") return <Badge className="bg-destructive/10 text-destructive border-destructive/30 gap-1"><XCircle className="h-3 w-3" />Reprovado</Badge>;
-  return <Badge variant="outline" className="gap-1"><Clock className="h-3 w-3" />Pendente</Badge>;
+  if (status === "approved") return <Badge className="bg-green-500/10 text-green-600 border-green-500/30 gap-1 text-[10px] px-1.5 py-0"><CheckCircle2 className="h-2.5 w-2.5" />Aprovado</Badge>;
+  if (status === "rejected") return <Badge className="bg-destructive/10 text-destructive border-destructive/30 gap-1 text-[10px] px-1.5 py-0"><XCircle className="h-2.5 w-2.5" />Reprovado</Badge>;
+  return <Badge variant="outline" className="gap-1 text-[10px] px-1.5 py-0"><Clock className="h-2.5 w-2.5" />Pendente</Badge>;
 };
 
 // ─── Mini Timeline ───
 const MiniTimeline = ({ revisions }: { revisions: RevisionItem[] }) => {
   if (!revisions.length) return null;
   return (
-    <div className="mt-2 space-y-1 border-l-2 border-muted pl-3">
-      {revisions.map((r) => (
-        <div key={r.id} className="text-xs text-muted-foreground">
+    <div className="mt-1 space-y-0.5 border-l-2 border-muted pl-2">
+      {revisions.slice(-3).map((r) => (
+        <div key={r.id} className="text-[10px] text-muted-foreground">
           <span className="font-medium text-foreground">{r.actor_name || "Sistema"}</span>{" "}
           {r.action}{r.comment ? ` — "${r.comment}"` : ""}{" "}
           <span className="text-muted-foreground/60">{new Date(r.created_at).toLocaleString("pt-BR")}</span>
@@ -251,16 +246,51 @@ async function fetchRevisions(campaignId: string, itemType: string, itemId: stri
   return (data as RevisionItem[]) || [];
 }
 
-// ─── Keywords Section ───
+// ─── Compact action buttons (same for gestor & client) ───
+const CompactActions = ({
+  item,
+  onApprove,
+  onReject,
+  onEdit,
+  onDelete,
+  isGestor,
+}: {
+  item: any;
+  onApprove: () => void;
+  onReject: () => void;
+  onEdit: () => void;
+  onDelete?: () => void;
+  isGestor: boolean;
+}) => (
+  <div className="flex items-center gap-0.5 shrink-0">
+    <Button size="icon" variant="ghost" className="h-6 w-6 text-green-600 hover:bg-green-50 hover:text-green-700" onClick={onApprove} title="Aprovar">
+      <CheckCircle2 className="h-3.5 w-3.5" />
+    </Button>
+    <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive hover:bg-destructive/5" onClick={onReject} title="Reprovar">
+      <XCircle className="h-3.5 w-3.5" />
+    </Button>
+    <Button size="icon" variant="ghost" className="h-6 w-6" onClick={onEdit} title="Editar">
+      <Pencil className="h-3 w-3" />
+    </Button>
+    {isGestor && onDelete && (
+      <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive hover:bg-destructive/5" onClick={onDelete} title="Excluir">
+        <Trash2 className="h-3 w-3" />
+      </Button>
+    )}
+  </div>
+);
+
+// ─── Keywords Section (compact chips + bulk add) ───
 const KeywordsSection = ({ campaignId, isGestor, userId, userName }: { campaignId: string; isGestor: boolean; userId: string; userName: string }) => {
   const { toast } = useToast();
   const [items, setItems] = useState<any[]>([]);
   const [revisions, setRevisions] = useState<Record<string, RevisionItem[]>>({});
-  const [newValue, setNewValue] = useState("");
+  const [bulkText, setBulkText] = useState("");
   const [editId, setEditId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
   const [suggestionId, setSuggestionId] = useState<string | null>(null);
   const [suggestionValue, setSuggestionValue] = useState("");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const fetch = useCallback(async () => {
     const { data } = await supabase.from("ad_campaign_keywords").select("*").eq("campaign_id", campaignId).order("position");
@@ -275,12 +305,16 @@ const KeywordsSection = ({ campaignId, isGestor, userId, userName }: { campaignI
 
   useEffect(() => { fetch(); }, [fetch]);
 
-  const handleAdd = async () => {
-    if (!newValue.trim()) return;
-    const { data, error } = await supabase.from("ad_campaign_keywords").insert({ campaign_id: campaignId, keyword: newValue.trim(), position: items.length }).select().single();
-    if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return; }
-    await addRevision(campaignId, "keyword", data.id, "Adicionou palavra-chave", userId, userName);
-    setNewValue("");
+  const handleBulkAdd = async () => {
+    const lines = bulkText.split("\n").map(l => l.trim()).filter(Boolean);
+    if (lines.length === 0) return;
+    for (let i = 0; i < lines.length; i++) {
+      const { data, error } = await supabase.from("ad_campaign_keywords").insert({ campaign_id: campaignId, keyword: lines[i], position: items.length + i }).select().single();
+      if (!error && data) {
+        await addRevision(campaignId, "keyword", (data as any).id, "Adicionou palavra-chave", userId, userName);
+      }
+    }
+    setBulkText("");
     fetch();
   };
 
@@ -314,71 +348,76 @@ const KeywordsSection = ({ campaignId, isGestor, userId, userName }: { campaignI
 
   return (
     <div className="space-y-4">
-      {isGestor && (
-        <div className="flex gap-2">
-          <Input placeholder="Nova palavra-chave..." value={newValue} onChange={(e) => setNewValue(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleAdd()} />
-          <Button onClick={handleAdd} size="sm"><Plus className="h-4 w-4 mr-1" />Adicionar</Button>
-        </div>
-      )}
+      {/* Bulk add: textarea with one keyword per line */}
+      <div className="space-y-2">
+        <Textarea
+          placeholder={"Adicione palavras-chave (uma por linha)...\nExemplo:\nmarketing digital\ngestão de tráfego\nanúncios online"}
+          value={bulkText}
+          onChange={(e) => setBulkText(e.target.value)}
+          rows={4}
+          className="text-sm"
+        />
+        <Button onClick={handleBulkAdd} size="sm" disabled={!bulkText.trim()}>
+          <Plus className="h-4 w-4 mr-1" />Adicionar
+        </Button>
+      </div>
 
       {items.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">Nenhuma palavra-chave adicionada.</p>}
 
-      <div className="space-y-3">
+      {/* Compact chip list */}
+      <div className="space-y-2">
         {items.map((item) => (
-          <Card key={item.id} className="hub-card-shadow">
-            <CardContent className="p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex-1">
-                  {editId === item.id ? (
-                    <div className="flex gap-2">
-                      <Input value={editValue} onChange={(e) => setEditValue(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleEdit()} autoFocus />
-                      <Button size="sm" onClick={handleEdit}>Salvar</Button>
-                      <Button size="sm" variant="ghost" onClick={() => setEditId(null)}>Cancelar</Button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-foreground">{item.keyword}</span>
-                      <ApprovalBadge status={item.approval_status} />
-                    </div>
-                  )}
+          <div key={item.id} className="group">
+            <div className="flex items-center gap-2 py-1.5 px-3 rounded-lg border bg-card hover:bg-muted/40 transition-colors">
+              {editId === item.id ? (
+                <div className="flex gap-2 flex-1">
+                  <Input value={editValue} onChange={(e) => setEditValue(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleEdit()} autoFocus className="h-7 text-sm" />
+                  <Button size="sm" className="h-7 text-xs" onClick={handleEdit}>Salvar</Button>
+                  <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEditId(null)}>Cancelar</Button>
+                </div>
+              ) : (
+                <>
+                  <span className="font-medium text-sm text-foreground flex-1 cursor-pointer" onClick={() => setExpandedId(expandedId === item.id ? null : item.id)}>{item.keyword}</span>
+                  <ApprovalBadge status={item.approval_status} />
                   {item.suggestion && (
-                    <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
-                      <MessageSquare className="h-3 w-3" /> Sugestão de troca: "{item.suggestion}"
-                    </p>
+                    <span className="text-[10px] text-amber-600 flex items-center gap-0.5">
+                      <MessageSquare className="h-2.5 w-2.5" /> {item.suggestion}
+                    </span>
                   )}
-                </div>
-                <div className="flex items-center gap-1 shrink-0">
-                  {isGestor ? (
-                    <>
-                      <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => { setEditId(item.id); setEditValue(item.keyword); }}><Pencil className="h-3.5 w-3.5" /></Button>
-                      <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => handleDelete(item.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
-                    </>
-                  ) : (
-                    <>
-                      <Button size="sm" variant="outline" className="h-8 text-green-600 border-green-300 hover:bg-green-50" onClick={() => handleApproval(item.id, "approved")}><CheckCircle2 className="h-3.5 w-3.5 mr-1" />Aprovar</Button>
-                      <Button size="sm" variant="outline" className="h-8 text-destructive border-destructive/30 hover:bg-destructive/5" onClick={() => handleApproval(item.id, "rejected")}><XCircle className="h-3.5 w-3.5 mr-1" />Reprovar</Button>
-                      <Button size="sm" variant="outline" className="h-8" onClick={() => { setSuggestionId(item.id); setSuggestionValue(""); }}>Trocar por</Button>
-                    </>
-                  )}
-                </div>
-              </div>
-              {suggestionId === item.id && (
-                <div className="flex gap-2 mt-2">
-                  <Input placeholder="Sugestão de troca..." value={suggestionValue} onChange={(e) => setSuggestionValue(e.target.value)} autoFocus />
-                  <Button size="sm" onClick={() => handleSuggestion(item.id)}>Enviar</Button>
-                  <Button size="sm" variant="ghost" onClick={() => setSuggestionId(null)}>Cancelar</Button>
-                </div>
+                  <CompactActions
+                    item={item}
+                    onApprove={() => handleApproval(item.id, "approved")}
+                    onReject={() => handleApproval(item.id, "rejected")}
+                    onEdit={() => { setEditId(item.id); setEditValue(item.keyword); }}
+                    onDelete={isGestor ? () => handleDelete(item.id) : undefined}
+                    isGestor={isGestor}
+                  />
+                  <Button size="sm" variant="ghost" className="h-6 text-[10px] px-2" onClick={() => { setSuggestionId(suggestionId === item.id ? null : item.id); setSuggestionValue(""); }}>
+                    Trocar por
+                  </Button>
+                </>
               )}
-              <MiniTimeline revisions={revisions[item.id] || []} />
-            </CardContent>
-          </Card>
+            </div>
+            {suggestionId === item.id && (
+              <div className="flex gap-2 mt-1 ml-3">
+                <Input placeholder="Sugestão de troca..." value={suggestionValue} onChange={(e) => setSuggestionValue(e.target.value)} className="h-7 text-sm" autoFocus />
+                <Button size="sm" className="h-7 text-xs" onClick={() => handleSuggestion(item.id)}>Enviar</Button>
+                <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setSuggestionId(null)}>Cancelar</Button>
+              </div>
+            )}
+            {expandedId === item.id && (
+              <div className="ml-3 mt-1">
+                <MiniTimeline revisions={revisions[item.id] || []} />
+              </div>
+            )}
+          </div>
         ))}
       </div>
     </div>
   );
 };
 
-// ─── Generic Text Items Section (Titles / Descriptions) ───
+// ─── Generic Text Items Section (Titles / Descriptions / Callouts) - Compact ───
 interface TextSectionProps {
   campaignId: string;
   isGestor: boolean;
@@ -398,6 +437,7 @@ const TextItemsSection = ({ campaignId, isGestor, userId, userName, table, field
   const [newValue, setNewValue] = useState("");
   const [editId, setEditId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const fetchItems = useCallback(async () => {
     const { data } = await supabase.from(table as any).select("*").eq("campaign_id", campaignId).order("position");
@@ -443,66 +483,62 @@ const TextItemsSection = ({ campaignId, isGestor, userId, userName, table, field
 
   return (
     <div className="space-y-4">
-      {isGestor && (
-        <div className="space-y-2">
-          <div className="flex gap-2">
-            <Input
-              placeholder={`Novo ${label.toLowerCase()}...`}
-              value={newValue}
-              onChange={(e) => setNewValue(e.target.value)}
-              maxLength={maxChars}
-              onKeyDown={(e) => e.key === "Enter" && handleAdd()}
-            />
-            <Button onClick={handleAdd} size="sm" disabled={!newValue.trim() || newValue.length > maxChars}>
-              <Plus className="h-4 w-4 mr-1" />Adicionar
-            </Button>
-          </div>
-          <p className={`text-xs ${newValue.length > maxChars ? "text-destructive" : "text-muted-foreground"}`}>{newValue.length}/{maxChars} caracteres</p>
+      <div className="space-y-2">
+        <div className="flex gap-2">
+          <Input
+            placeholder={`Novo ${label.toLowerCase()}...`}
+            value={newValue}
+            onChange={(e) => setNewValue(e.target.value)}
+            maxLength={maxChars}
+            onKeyDown={(e) => e.key === "Enter" && handleAdd()}
+            className="text-sm"
+          />
+          <Button onClick={handleAdd} size="sm" disabled={!newValue.trim() || newValue.length > maxChars}>
+            <Plus className="h-4 w-4 mr-1" />Adicionar
+          </Button>
         </div>
-      )}
+        <p className={`text-xs ${newValue.length > maxChars ? "text-destructive" : "text-muted-foreground"}`}>{newValue.length}/{maxChars} caracteres</p>
+      </div>
 
       {items.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">Nenhum(a) {label.toLowerCase()} adicionado(a).</p>}
 
-      <div className="space-y-3">
+      <div className="space-y-2">
         {items.map((item) => (
-          <Card key={item.id} className="hub-card-shadow">
-            <CardContent className="p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex-1">
-                  {editId === item.id ? (
-                    <div className="space-y-2">
-                      <div className="flex gap-2">
-                        <Input value={editValue} onChange={(e) => setEditValue(e.target.value)} maxLength={maxChars} autoFocus onKeyDown={(e) => e.key === "Enter" && handleEdit()} />
-                        <Button size="sm" onClick={handleEdit}>Salvar</Button>
-                        <Button size="sm" variant="ghost" onClick={() => setEditId(null)}>Cancelar</Button>
-                      </div>
-                      <p className={`text-xs ${editValue.length > maxChars ? "text-destructive" : "text-muted-foreground"}`}>{editValue.length}/{maxChars}</p>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-medium text-foreground">{item[fieldName]}</span>
-                      <span className="text-xs text-muted-foreground">({item[fieldName].length}/{maxChars})</span>
-                      <ApprovalBadge status={item.approval_status} />
-                    </div>
-                  )}
+          <div key={item.id}>
+            <div className="flex items-center gap-2 py-1.5 px-3 rounded-lg border bg-card hover:bg-muted/40 transition-colors">
+              {editId === item.id ? (
+                <div className="flex-1 space-y-1">
+                  <div className="flex gap-2">
+                    <Input value={editValue} onChange={(e) => setEditValue(e.target.value)} maxLength={maxChars} autoFocus onKeyDown={(e) => e.key === "Enter" && handleEdit()} className="h-7 text-sm" />
+                    <Button size="sm" className="h-7 text-xs" onClick={handleEdit}>Salvar</Button>
+                    <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEditId(null)}>Cancelar</Button>
+                  </div>
+                  <p className={`text-[10px] ${editValue.length > maxChars ? "text-destructive" : "text-muted-foreground"}`}>{editValue.length}/{maxChars}</p>
                 </div>
-                <div className="flex items-center gap-1 shrink-0">
-                  {isGestor ? (
-                    <>
-                      <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => { setEditId(item.id); setEditValue(item[fieldName]); }}><Pencil className="h-3.5 w-3.5" /></Button>
-                      <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => handleDelete(item.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
-                    </>
-                  ) : (
-                    <>
-                      <Button size="sm" variant="outline" className="h-8 text-green-600 border-green-300 hover:bg-green-50" onClick={() => handleApproval(item.id, "approved")}><CheckCircle2 className="h-3.5 w-3.5 mr-1" />Aprovar</Button>
-                      <Button size="sm" variant="outline" className="h-8 text-destructive border-destructive/30 hover:bg-destructive/5" onClick={() => handleApproval(item.id, "rejected")}><XCircle className="h-3.5 w-3.5 mr-1" />Reprovar</Button>
-                    </>
-                  )}
-                </div>
+              ) : (
+                <>
+                  <span className="font-medium text-sm text-foreground flex-1 cursor-pointer" onClick={() => setExpandedId(expandedId === item.id ? null : item.id)}>
+                    {item[fieldName]}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">({item[fieldName].length}/{maxChars})</span>
+                  <ApprovalBadge status={item.approval_status} />
+                  <CompactActions
+                    item={item}
+                    onApprove={() => handleApproval(item.id, "approved")}
+                    onReject={() => handleApproval(item.id, "rejected")}
+                    onEdit={() => { setEditId(item.id); setEditValue(item[fieldName]); }}
+                    onDelete={isGestor ? () => handleDelete(item.id) : undefined}
+                    isGestor={isGestor}
+                  />
+                </>
+              )}
+            </div>
+            {expandedId === item.id && (
+              <div className="ml-3 mt-1">
+                <MiniTimeline revisions={revisions[item.id] || []} />
               </div>
-              <MiniTimeline revisions={revisions[item.id] || []} />
-            </CardContent>
-          </Card>
+            )}
+          </div>
         ))}
       </div>
     </div>
@@ -525,6 +561,7 @@ const SitelinksSection = ({ campaignId, isGestor, userId, userName }: { campaign
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ title: "", description1: "", description2: "", url: "" });
   const [editId, setEditId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const fetchItems = useCallback(async () => {
     const { data } = await supabase.from("ad_campaign_sitelinks").select("*").eq("campaign_id", campaignId).order("position");
@@ -575,7 +612,7 @@ const SitelinksSection = ({ campaignId, isGestor, userId, userName }: { campaign
 
   return (
     <div className="space-y-4">
-      {isGestor && !showForm && (
+      {!showForm && (
         <Button onClick={() => { setShowForm(true); setEditId(null); setForm({ title: "", description1: "", description2: "", url: "" }); }} size="sm">
           <Plus className="h-4 w-4 mr-1" />Adicionar Sitelink
         </Button>
@@ -610,37 +647,33 @@ const SitelinksSection = ({ campaignId, isGestor, userId, userName }: { campaign
 
       {items.length === 0 && !showForm && <p className="text-sm text-muted-foreground text-center py-4">Nenhum sitelink adicionado.</p>}
 
-      <div className="space-y-3">
+      <div className="space-y-2">
         {items.map((item) => (
-          <Card key={item.id} className="hub-card-shadow">
-            <CardContent className="p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex-1 space-y-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-semibold text-foreground">{item.title}</span>
-                    <ApprovalBadge status={item.approval_status} />
-                  </div>
-                  <p className="text-sm text-muted-foreground">{item.description1}</p>
-                  <p className="text-sm text-muted-foreground">{item.description2}</p>
-                  <p className="text-xs text-primary break-all">{item.url}</p>
+          <div key={item.id}>
+            <div className="flex items-center gap-2 py-2 px-3 rounded-lg border bg-card hover:bg-muted/40 transition-colors">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-semibold text-sm text-foreground cursor-pointer" onClick={() => setExpandedId(expandedId === item.id ? null : item.id)}>{item.title}</span>
+                  <ApprovalBadge status={item.approval_status} />
                 </div>
-                <div className="flex items-center gap-1 shrink-0">
-                  {isGestor ? (
-                    <>
-                      <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => { setEditId(item.id); setForm({ title: item.title, description1: item.description1, description2: item.description2, url: item.url }); setShowForm(true); }}><Pencil className="h-3.5 w-3.5" /></Button>
-                      <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => handleDelete(item.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
-                    </>
-                  ) : (
-                    <>
-                      <Button size="sm" variant="outline" className="h-8 text-green-600 border-green-300 hover:bg-green-50" onClick={() => handleApproval(item.id, "approved")}><CheckCircle2 className="h-3.5 w-3.5 mr-1" />Aprovar</Button>
-                      <Button size="sm" variant="outline" className="h-8 text-destructive border-destructive/30 hover:bg-destructive/5" onClick={() => handleApproval(item.id, "rejected")}><XCircle className="h-3.5 w-3.5 mr-1" />Reprovar</Button>
-                    </>
-                  )}
-                </div>
+                <p className="text-xs text-muted-foreground truncate">{item.description1} | {item.description2}</p>
+                <p className="text-[10px] text-primary truncate">{item.url}</p>
               </div>
-              <MiniTimeline revisions={revisions[item.id] || []} />
-            </CardContent>
-          </Card>
+              <CompactActions
+                item={item}
+                onApprove={() => handleApproval(item.id, "approved")}
+                onReject={() => handleApproval(item.id, "rejected")}
+                onEdit={() => { setEditId(item.id); setForm({ title: item.title, description1: item.description1, description2: item.description2, url: item.url }); setShowForm(true); }}
+                onDelete={isGestor ? () => handleDelete(item.id) : undefined}
+                isGestor={isGestor}
+              />
+            </div>
+            {expandedId === item.id && (
+              <div className="ml-3 mt-1">
+                <MiniTimeline revisions={revisions[item.id] || []} />
+              </div>
+            )}
+          </div>
         ))}
       </div>
     </div>
@@ -664,7 +697,6 @@ const ImagesSection = ({ campaignId, isGestor, userId, userName }: { campaignId:
     const { data } = await supabase.from("ad_campaign_images").select("*").eq("campaign_id", campaignId).order("position");
     const list = (data as any[]) || [];
     setItems(list);
-    // Generate signed URLs
     const urls: Record<string, string> = {};
     for (const item of list) {
       const { data: urlData } = await supabase.storage.from("ad-campaign-images").createSignedUrl(item.file_path, 3600);
@@ -716,16 +748,14 @@ const ImagesSection = ({ campaignId, isGestor, userId, userName }: { campaignId:
 
   return (
     <div className="space-y-4">
-      {isGestor && (
-        <div>
-          <label className="cursor-pointer">
-            <Button asChild size="sm" disabled={uploading}>
-              <span>{uploading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Enviando...</> : <><Plus className="h-4 w-4 mr-1" />Upload de Imagens</>}</span>
-            </Button>
-            <input type="file" className="hidden" accept="image/*" multiple onChange={handleUpload} />
-          </label>
-        </div>
-      )}
+      <div>
+        <label className="cursor-pointer">
+          <Button asChild size="sm" disabled={uploading}>
+            <span>{uploading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Enviando...</> : <><Plus className="h-4 w-4 mr-1" />Upload de Imagens</>}</span>
+          </Button>
+          <input type="file" className="hidden" accept="image/*" multiple onChange={handleUpload} />
+        </label>
+      </div>
 
       {items.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">Nenhuma imagem adicionada.</p>}
 
@@ -745,13 +775,16 @@ const ImagesSection = ({ campaignId, isGestor, userId, userName }: { campaignId:
             <CardContent className="p-3 space-y-2">
               <p className="text-xs text-muted-foreground truncate">{item.file_name || "Imagem"}</p>
               <div className="flex gap-1">
-                {isGestor ? (
-                  <Button size="sm" variant="ghost" className="h-7 text-destructive" onClick={() => handleDelete(item.id, item.file_path)}><Trash2 className="h-3.5 w-3.5" /></Button>
-                ) : (
-                  <>
-                    <Button size="sm" variant="outline" className="h-7 text-green-600 border-green-300 text-xs" onClick={() => handleApproval(item.id, "approved")}><CheckCircle2 className="h-3 w-3 mr-1" />Aprovar</Button>
-                    <Button size="sm" variant="outline" className="h-7 text-destructive border-destructive/30 text-xs" onClick={() => handleApproval(item.id, "rejected")}><XCircle className="h-3 w-3 mr-1" />Reprovar</Button>
-                  </>
+                <Button size="icon" variant="ghost" className="h-6 w-6 text-green-600" onClick={() => handleApproval(item.id, "approved")} title="Aprovar">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                </Button>
+                <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive" onClick={() => handleApproval(item.id, "rejected")} title="Reprovar">
+                  <XCircle className="h-3.5 w-3.5" />
+                </Button>
+                {isGestor && (
+                  <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive" onClick={() => handleDelete(item.id, item.file_path)} title="Excluir">
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
                 )}
               </div>
               <MiniTimeline revisions={revisions[item.id] || []} />
