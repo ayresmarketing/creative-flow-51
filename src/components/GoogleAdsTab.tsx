@@ -59,6 +59,133 @@ const MiniTimeline = ({ revisions }: { revisions: RevisionItem[] }) => {
   );
 };
 
+// ─── Global Campaign Timeline (Gestor only) ───
+interface GlobalRevision extends RevisionItem {
+  item_type: string;
+  item_id: string;
+}
+
+const ITEM_TYPE_LABELS: Record<string, { label: string; icon: typeof Tag }> = {
+  keyword: { label: "Palavra-chave", icon: Tag },
+  title: { label: "Título", icon: Type },
+  description: { label: "Descrição", icon: FileText },
+  sitelink: { label: "Sitelink", icon: Link },
+  callout: { label: "Extensão", icon: Megaphone },
+  image: { label: "Imagem", icon: Image },
+};
+
+const CampaignGlobalTimeline = ({
+  open, onOpenChange, campaignId, campaignName,
+}: {
+  open: boolean; onOpenChange: (v: boolean) => void; campaignId: string; campaignName: string;
+}) => {
+  const [revisions, setRevisions] = useState<GlobalRevision[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<string>("all");
+
+  useEffect(() => {
+    if (!open) return;
+    setLoading(true);
+    supabase
+      .from("ad_campaign_revisions")
+      .select("*")
+      .eq("campaign_id", campaignId)
+      .order("created_at", { ascending: false })
+      .then(({ data }) => {
+        setRevisions((data as GlobalRevision[]) || []);
+        setLoading(false);
+      });
+  }, [open, campaignId]);
+
+  const filtered = filter === "all" ? revisions : revisions.filter((r) => r.item_type === filter);
+
+  const getActionColor = (action: string) => {
+    if (action.toLowerCase().includes("aprov")) return "bg-green-500";
+    if (action.toLowerCase().includes("reprov") || action.toLowerCase().includes("rejeit")) return "bg-destructive";
+    if (action.toLowerCase().includes("sugest") || action.toLowerCase().includes("trocar")) return "bg-yellow-500";
+    if (action.toLowerCase().includes("editad") || action.toLowerCase().includes("atualiz")) return "bg-blue-500";
+    if (action.toLowerCase().includes("cri") || action.toLowerCase().includes("adicion")) return "bg-primary";
+    if (action.toLowerCase().includes("exclu") || action.toLowerCase().includes("remov")) return "bg-destructive";
+    return "bg-muted-foreground";
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Clock className="h-5 w-5" /> Linha do Tempo — {campaignName}
+          </DialogTitle>
+          <DialogDescription>Histórico completo de todas as alterações da campanha.</DialogDescription>
+        </DialogHeader>
+
+        <div className="flex flex-wrap gap-1.5 pb-2 border-b">
+          <Button size="sm" variant={filter === "all" ? "default" : "outline"} className="h-7 text-xs" onClick={() => setFilter("all")}>
+            Todos ({revisions.length})
+          </Button>
+          {Object.entries(ITEM_TYPE_LABELS).map(([key, { label, icon: Icon }]) => {
+            const count = revisions.filter((r) => r.item_type === key).length;
+            if (count === 0) return null;
+            return (
+              <Button
+                key={key}
+                size="sm"
+                variant={filter === key ? "default" : "outline"}
+                className="h-7 text-xs gap-1"
+                onClick={() => setFilter(key)}
+              >
+                <Icon className="h-3 w-3" />
+                {label} ({count})
+              </Button>
+            );
+          })}
+        </div>
+
+        <div className="flex-1 overflow-y-auto pr-2">
+          {loading ? (
+            <p className="text-center text-sm text-muted-foreground py-8">Carregando...</p>
+          ) : filtered.length === 0 ? (
+            <p className="text-center text-sm text-muted-foreground py-8">Nenhuma alteração registrada{filter !== "all" ? " para este tipo" : ""}.</p>
+          ) : (
+            <div className="relative pl-6 space-y-0 pt-2">
+              <div className="absolute left-[11px] top-3 bottom-2 w-0.5 bg-border" />
+              {filtered.map((rev) => {
+                const meta = ITEM_TYPE_LABELS[rev.item_type] || { label: rev.item_type, icon: MessageSquare };
+                const Icon = meta.icon;
+                return (
+                  <div key={rev.id} className="relative pb-5 last:pb-0">
+                    <div className={`absolute -left-6 top-1.5 w-3 h-3 rounded-full ${getActionColor(rev.action)} ring-2 ring-background`} />
+                    <div className="ml-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Badge variant="outline" className="gap-1 text-[10px] px-1.5 py-0">
+                          <Icon className="h-2.5 w-2.5" />
+                          {meta.label}
+                        </Badge>
+                        <span className="text-sm font-medium text-foreground">{rev.action}</span>
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                          {rev.actor_name || "Sistema"}
+                        </Badge>
+                      </div>
+                      {rev.comment && (
+                        <div className="mt-1.5 p-2 bg-muted rounded-md">
+                          <p className="text-sm text-foreground">{rev.comment}</p>
+                        </div>
+                      )}
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {new Date(rev.created_at).toLocaleString("pt-BR")}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
 // ─── Main Component ───
 const GoogleAdsTab = ({ productId }: GoogleAdsTabProps) => {
   const { user } = useAuth();
@@ -183,16 +310,31 @@ interface CampaignDetailProps {
 
 const CampaignDetail = ({ campaign, onBack, isGestor, userId, userName }: CampaignDetailProps) => {
   const [tab, setTab] = useState("keywords");
+  const [timelineOpen, setTimelineOpen] = useState(false);
 
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon" onClick={onBack}><ArrowLeft className="h-5 w-5" /></Button>
-        <div>
+        <div className="flex-1">
           <h3 className="text-lg font-semibold">{campaign.name}</h3>
           <p className="text-xs text-muted-foreground">Campanha Google Ads</p>
         </div>
+        {isGestor && (
+          <Button variant="outline" size="sm" className="gap-2" onClick={() => setTimelineOpen(true)}>
+            <Clock className="h-4 w-4" /> Linha do Tempo
+          </Button>
+        )}
       </div>
+
+      {isGestor && (
+        <CampaignGlobalTimeline
+          open={timelineOpen}
+          onOpenChange={setTimelineOpen}
+          campaignId={campaign.id}
+          campaignName={campaign.name}
+        />
+      )}
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="flex-wrap">
