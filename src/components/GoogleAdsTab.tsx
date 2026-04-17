@@ -183,16 +183,31 @@ interface CampaignDetailProps {
 
 const CampaignDetail = ({ campaign, onBack, isGestor, userId, userName }: CampaignDetailProps) => {
   const [tab, setTab] = useState("keywords");
+  const [timelineOpen, setTimelineOpen] = useState(false);
 
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon" onClick={onBack}><ArrowLeft className="h-5 w-5" /></Button>
-        <div>
+        <div className="flex-1">
           <h3 className="text-lg font-semibold">{campaign.name}</h3>
           <p className="text-xs text-muted-foreground">Campanha Google Ads</p>
         </div>
+        {isGestor && (
+          <Button variant="outline" size="sm" className="gap-2" onClick={() => setTimelineOpen(true)}>
+            <Clock className="h-4 w-4" /> Linha do Tempo
+          </Button>
+        )}
       </div>
+
+      {isGestor && (
+        <CampaignGlobalTimeline
+          open={timelineOpen}
+          onOpenChange={setTimelineOpen}
+          campaignId={campaign.id}
+          campaignName={campaign.name}
+        />
+      )}
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="flex-wrap">
