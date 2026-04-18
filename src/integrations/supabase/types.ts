@@ -488,6 +488,7 @@ export type Database = {
         Row: {
           created_at: string
           creative_id: string
+          drive_file_id: string | null
           file_name: string | null
           file_path: string
           file_size: number | null
@@ -498,6 +499,7 @@ export type Database = {
         Insert: {
           created_at?: string
           creative_id: string
+          drive_file_id?: string | null
           file_name?: string | null
           file_path: string
           file_size?: number | null
@@ -508,6 +510,7 @@ export type Database = {
         Update: {
           created_at?: string
           creative_id?: string
+          drive_file_id?: string | null
           file_name?: string | null
           file_path?: string
           file_size?: number | null

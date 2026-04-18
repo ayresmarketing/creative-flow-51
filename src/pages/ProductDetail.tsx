@@ -118,30 +118,32 @@ const ProductDetail = () => {
     setProduct(prodRes.data);
     setBriefingData(briefRes.data?.responses ?? null);
 
-    // Fetch thumbnails for each creative
+    // Fetch thumbnails for each creative (Storage only — Drive migration happens on preview open)
     const creativesData = creatRes.data || [];
     const creativesWithThumbs = await Promise.all(
       creativesData.map(async (c) => {
-        const { data: files } = await supabase
-          .from("creative_files")
-          .select("id, file_path, drive_file_id")
-          .eq("creative_id", c.id)
-          .order("position")
-          .limit(1);
-        let thumbnail_url: string | null = null;
-        if (files && files.length > 0) {
-          const file = files[0];
-          const { data } = await supabase.storage.from("creatives").createSignedUrl(file.file_path, 3600);
-          if (data?.signedUrl) {
-            thumbnail_url = data.signedUrl;
-          } else if (file.drive_file_id) {
-            const { data: migrateData } = await supabase.functions.invoke("google-drive-operations", {
-              body: { action: "get_or_migrate_file_url", creative_file_id: file.id },
-            });
-            thumbnail_url = migrateData?.signedUrl ?? null;
+        try {
+          const { data: files } = await supabase
+            .from("creative_files")
+            .select("id, file_path, drive_file_id")
+            .eq("creative_id", c.id)
+            .order("position")
+            .limit(1);
+          let thumbnail_url: string | null = null;
+          if (files && files.length > 0) {
+            const file = files[0];
+            const folder = file.file_path.split("/").slice(0, -1).join("/");
+            const filename = file.file_path.split("/").pop() || "";
+            const { data: listed } = await supabase.storage.from("creatives").list(folder, { search: filename });
+            if (listed && listed.length > 0) {
+              const { data } = await supabase.storage.from("creatives").createSignedUrl(file.file_path, 3600);
+              thumbnail_url = data?.signedUrl ?? null;
+            }
           }
+          return { ...c, thumbnail_url };
+        } catch {
+          return { ...c, thumbnail_url: null };
         }
-        return { ...c, thumbnail_url };
       })
     );
     setCreatives(creativesWithThumbs);

@@ -53,12 +53,17 @@ const CreativePreviewDialog = ({ open, onOpenChange, creativeId, creativeCode, c
       setLoadingUrls(true);
       const urls: Record<string, string> = {};
       for (const file of files) {
-        // Try Storage first
-        const { data } = await supabase.storage.from("creatives").createSignedUrl(file.file_path, 3600);
-        if (data?.signedUrl) {
-          urls[file.file_path] = data.signedUrl;
+        // Check if file actually exists in Storage
+        const folder = file.file_path.split("/").slice(0, -1).join("/");
+        const filename = file.file_path.split("/").pop() || "";
+        const { data: listed } = await supabase.storage.from("creatives").list(folder, { search: filename });
+        const existsInStorage = listed && listed.length > 0;
+
+        if (existsInStorage) {
+          const { data } = await supabase.storage.from("creatives").createSignedUrl(file.file_path, 3600);
+          if (data?.signedUrl) urls[file.file_path] = data.signedUrl;
         } else if (file.drive_file_id) {
-          // Fallback: migrate from Drive to Storage and get signed URL
+          // Migrate from Drive to Storage on first view
           const { data: migrateData } = await supabase.functions.invoke("google-drive-operations", {
             body: { action: "get_or_migrate_file_url", creative_file_id: file.id },
           });
