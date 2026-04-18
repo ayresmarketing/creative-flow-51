@@ -10,6 +10,7 @@ interface CreativeFile {
   file_name: string | null;
   format: string;
   position: number;
+  drive_file_id?: string | null;
 }
 
 interface CreativePreviewDialogProps {
@@ -30,7 +31,7 @@ const CreativePreviewDialog = ({ open, onOpenChange, creativeId, creativeCode, c
     if (!open || !creativeId) return;
     supabase
       .from("creative_files")
-      .select("id, file_path, file_name, format, position")
+      .select("id, file_path, file_name, format, position, drive_file_id")
       .eq("creative_id", creativeId)
       .order("position")
       .then(({ data }) => {
@@ -44,16 +45,28 @@ const CreativePreviewDialog = ({ open, onOpenChange, creativeId, creativeCode, c
   }, [open, creativeId, formatFilter]);
 
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
+  const [loadingUrls, setLoadingUrls] = useState(false);
 
   useEffect(() => {
     if (files.length === 0) return;
     const fetchUrls = async () => {
+      setLoadingUrls(true);
       const urls: Record<string, string> = {};
       for (const file of files) {
+        // Try Storage first
         const { data } = await supabase.storage.from("creatives").createSignedUrl(file.file_path, 3600);
-        if (data?.signedUrl) urls[file.file_path] = data.signedUrl;
+        if (data?.signedUrl) {
+          urls[file.file_path] = data.signedUrl;
+        } else if (file.drive_file_id) {
+          // Fallback: migrate from Drive to Storage and get signed URL
+          const { data: migrateData } = await supabase.functions.invoke("google-drive-operations", {
+            body: { action: "get_or_migrate_file_url", creative_file_id: file.id },
+          });
+          if (migrateData?.signedUrl) urls[file.file_path] = migrateData.signedUrl;
+        }
       }
       setSignedUrls(urls);
+      setLoadingUrls(false);
     };
     fetchUrls();
   }, [files]);
@@ -69,7 +82,13 @@ const CreativePreviewDialog = ({ open, onOpenChange, creativeId, creativeCode, c
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[85vh] p-0 overflow-hidden">
         <DialogTitle className="px-4 pt-4 pb-2 text-sm font-semibold font-sans">{creativeCode}{titleSuffix}</DialogTitle>
-        {currentFile && currentUrl && (
+        {loadingUrls && (
+          <div className="p-8 text-center text-muted-foreground text-sm flex flex-col items-center gap-2 min-h-[200px] justify-center">
+            <span className="h-5 w-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+            Carregando arquivo...
+          </div>
+        )}
+        {!loadingUrls && currentFile && currentUrl && (
           <div className="relative flex items-center justify-center bg-muted min-h-[300px] max-h-[70vh]">
             {isVideo ? (
               <video
@@ -131,7 +150,7 @@ const CreativePreviewDialog = ({ open, onOpenChange, creativeId, creativeCode, c
             )}
           </div>
         )}
-        {files.length === 0 && (
+        {!loadingUrls && files.length === 0 && (
           <div className="p-8 text-center text-muted-foreground text-sm">Nenhum arquivo encontrado.</div>
         )}
       </DialogContent>

@@ -489,6 +489,116 @@ serve(async (req) => {
         break;
       }
 
+      case "populate_drive_ids": {
+        // One-time migration: find Drive file IDs for all creative_files records
+        const { data: allCreatives } = await supabase
+          .from("creatives")
+          .select("id, code, type, objective, product_id");
+
+        const { data: allFolders } = await supabase
+          .from("google_drive_folders")
+          .select("product_id, folder_id")
+          .not("product_id", "is", null);
+
+        const folderMap: Record<string, string> = {};
+        for (const f of allFolders || []) folderMap[f.product_id] = f.folder_id;
+
+        let updated = 0;
+        let notFound = 0;
+
+        for (const creative of allCreatives || []) {
+          const productFolderId = folderMap[creative.product_id];
+          if (!productFolderId) continue;
+
+          const mediaSubfolder = getMediaSubfolder(creative.type);
+          const objFolderId = await findFolder(accessToken, productFolderId, creative.objective);
+          if (!objFolderId) { notFound++; continue; }
+          const mediaFolderId = await findFolder(accessToken, objFolderId, mediaSubfolder);
+          if (!mediaFolderId) { notFound++; continue; }
+
+          // Search for files whose name starts with the creative code
+          const escapedCode = escapeDriveQueryValue(creative.code);
+          const q = `'${mediaFolderId}' in parents and name contains '${escapedCode}' and trashed=false`;
+          const res = await fetch(
+            `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name)&supportsAllDrives=true&includeItemsFromAllDrives=true`,
+            { headers: { Authorization: `Bearer ${accessToken}` } }
+          );
+          const data = await res.json();
+          const files: { id: string; name: string }[] = data.files || [];
+
+          if (files.length === 0) { notFound++; continue; }
+
+          // Get creative_files for this creative
+          const { data: creativeFiles } = await supabase
+            .from("creative_files")
+            .select("id, file_name")
+            .eq("creative_id", creative.id);
+
+          for (let i = 0; i < (creativeFiles || []).length; i++) {
+            const cf = creativeFiles![i];
+            const driveFile = files.length === 1 ? files[0] : (files[i] || files[0]);
+            if (!driveFile) continue;
+            await supabase
+              .from("creative_files")
+              .update({ drive_file_id: driveFile.id })
+              .eq("id", cf.id);
+            updated++;
+          }
+        }
+
+        result = { updated, notFound };
+        break;
+      }
+
+      case "get_or_migrate_file_url": {
+        // Returns a Supabase Storage signed URL, migrating from Drive if needed
+        const { creative_file_id } = params;
+
+        const { data: cf } = await supabase
+          .from("creative_files")
+          .select("id, file_path, drive_file_id, creative_id")
+          .eq("id", creative_file_id)
+          .single();
+
+        if (!cf) throw new Error("creative_file não encontrado");
+
+        // Check if file exists in Storage
+        const { data: storageCheck } = await supabase.storage
+          .from("creatives")
+          .list(cf.file_path.split("/").slice(0, -1).join("/"), {
+            search: cf.file_path.split("/").pop(),
+          });
+
+        const existsInStorage = storageCheck && storageCheck.length > 0;
+
+        if (!existsInStorage && cf.drive_file_id) {
+          // Download from Drive and upload to Storage
+          const driveRes = await fetch(
+            `https://www.googleapis.com/drive/v3/files/${cf.drive_file_id}?alt=media&supportsAllDrives=true`,
+            { headers: { Authorization: `Bearer ${accessToken}` } }
+          );
+
+          if (!driveRes.ok) throw new Error("Falha ao baixar arquivo do Drive");
+
+          const contentType = driveRes.headers.get("content-type") || "application/octet-stream";
+          const fileBytes = new Uint8Array(await driveRes.arrayBuffer());
+
+          const { error: uploadError } = await supabase.storage
+            .from("creatives")
+            .upload(cf.file_path, fileBytes, { contentType, upsert: true });
+
+          if (uploadError) throw new Error(`Falha ao enviar para Storage: ${uploadError.message}`);
+        }
+
+        // Return signed URL from Storage
+        const { data: signedData } = await supabase.storage
+          .from("creatives")
+          .createSignedUrl(cf.file_path, 3600);
+
+        result = { signedUrl: signedData?.signedUrl || null };
+        break;
+      }
+
       default:
         throw new Error(`Ação desconhecida: ${action}`);
     }

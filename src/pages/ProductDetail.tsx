@@ -124,14 +124,22 @@ const ProductDetail = () => {
       creativesData.map(async (c) => {
         const { data: files } = await supabase
           .from("creative_files")
-          .select("file_path")
+          .select("id, file_path, drive_file_id")
           .eq("creative_id", c.id)
           .order("position")
           .limit(1);
         let thumbnail_url: string | null = null;
         if (files && files.length > 0) {
-          const { data } = await supabase.storage.from("creatives").createSignedUrl(files[0].file_path, 3600);
-          thumbnail_url = data?.signedUrl ?? null;
+          const file = files[0];
+          const { data } = await supabase.storage.from("creatives").createSignedUrl(file.file_path, 3600);
+          if (data?.signedUrl) {
+            thumbnail_url = data.signedUrl;
+          } else if (file.drive_file_id) {
+            const { data: migrateData } = await supabase.functions.invoke("google-drive-operations", {
+              body: { action: "get_or_migrate_file_url", creative_file_id: file.id },
+            });
+            thumbnail_url = migrateData?.signedUrl ?? null;
+          }
         }
         return { ...c, thumbnail_url };
       })
