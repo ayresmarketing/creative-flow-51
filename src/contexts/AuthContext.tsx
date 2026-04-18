@@ -140,6 +140,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const rememberMe = localStorage.getItem("remember_me");
+    const tabAlive = sessionStorage.getItem("tab_alive");
+    if (rememberMe === "false" && !tabAlive) {
+      supabase.auth.signOut();
+      localStorage.removeItem("remember_me");
+    } else if (tabAlive) {
+      sessionStorage.setItem("tab_alive", "1");
+    }
+  }, []);
+
+  useEffect(() => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {

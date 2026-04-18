@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Eye, EyeOff } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/contexts/AuthContext";
 import ayresLogo from "@/assets/ayres-logo.png";
 
@@ -13,6 +13,7 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -23,6 +24,8 @@ const Login = () => {
     try {
       const result = await login(email, password);
       if (result) {
+        localStorage.setItem("remember_me", rememberMe ? "true" : "false");
+        sessionStorage.setItem("tab_alive", "1");
         navigate(result.role === "GESTOR" ? "/clients" : "/products");
       } else {
         setError("Email ou senha inválidos");
@@ -102,6 +105,17 @@ const Login = () => {
                 required
                 className="h-11"
               />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="remember-me"
+                checked={rememberMe}
+                onCheckedChange={(v) => setRememberMe(!!v)}
+              />
+              <Label htmlFor="remember-me" className="text-sm font-normal cursor-pointer select-none">
+                Lembrar de mim
+              </Label>
             </div>
 
             {error && (
