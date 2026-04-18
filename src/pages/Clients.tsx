@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import Layout from "@/components/Layout";
 import CreateClientDialog from "@/components/CreateClientDialog";
@@ -27,7 +27,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, Users, Mail, FolderOpen, Search, MoreVertical, Trash2, Ban, RotateCcw, KeyRound, Code2, UserPlus } from "lucide-react";
+import { Plus, Users, Mail, FolderOpen, Search, MoreVertical, Trash2, Ban, RotateCcw, KeyRound, Code2, UserPlus, ImagePlus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 
@@ -53,6 +53,8 @@ const Clients = () => {
   const [resetClient, setResetClient] = useState<{ userId: string; name: string } | null>(null);
   const [embedClient, setEmbedClient] = useState<{ id: string; name: string; reportHtml?: string | null } | null>(null);
   const [teamMemberClient, setTeamMemberClient] = useState<{ id: string; name: string } | null>(null);
+  const [logoEditClientId, setLogoEditClientId] = useState<string | null>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   const fetchClients = useCallback(async () => {
     const { data } = await supabase
@@ -113,8 +115,33 @@ const Clients = () => {
     }
   };
 
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !logoEditClientId) return;
+    e.target.value = "";
+    const ext = file.name.split(".").pop();
+    const path = `${logoEditClientId}/logo.${ext}`;
+    const { error } = await supabase.storage.from("client-logos").upload(path, file, { upsert: true });
+    if (error) {
+      toast({ title: "Erro ao enviar logo", description: error.message, variant: "destructive" });
+    } else {
+      const { data: urlData } = supabase.storage.from("client-logos").getPublicUrl(path);
+      await supabase.from("clients").update({ logo_url: urlData.publicUrl } as any).eq("id", logoEditClientId);
+      setClients((prev) => prev.map((c) => c.id === logoEditClientId ? { ...c, logo_url: urlData.publicUrl } : c));
+      toast({ title: "Logo atualizada com sucesso!" });
+    }
+    setLogoEditClientId(null);
+  };
+
   return (
     <Layout>
+      <input
+        ref={logoInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleLogoUpload}
+      />
       <CreateClientDialog open={createOpen} onOpenChange={setCreateOpen} onCreated={fetchClients} />
       {resetClient && (
         <ResetPasswordDialog
@@ -214,6 +241,15 @@ const Clients = () => {
                           Resetar senha
                         </DropdownMenuItem>
                       )}
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setLogoEditClientId(client.id);
+                          setTimeout(() => logoInputRef.current?.click(), 0);
+                        }}
+                      >
+                        <ImagePlus className="h-4 w-4 mr-2" />
+                        Editar logo
+                      </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={() => setTeamMemberClient({ id: client.id, name: client.name })}
                       >
