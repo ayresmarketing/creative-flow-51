@@ -11,11 +11,14 @@ import { Input } from "@/components/ui/input";
 import {
   Plus, Search, Image, Video, Layers, MoreVertical, Calendar,
   Play, ArrowLeft, Table as TableIcon, LayoutGrid, CheckCircle2, Circle,
-  Eye, Trash2, Download, BarChart3, Clock, Megaphone
+  Eye, Trash2, Download, BarChart3, Clock, Megaphone, Target
 } from "lucide-react";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -87,6 +90,11 @@ const ProductDetail = () => {
   const [timelineOpen, setTimelineOpen] = useState(false);
   const [timelineCreative, setTimelineCreative] = useState<Creative | null>(null);
   const [isCollaborator, setIsCollaborator] = useState(false);
+  const [changeObjOpen, setChangeObjOpen] = useState(false);
+  const [changeObjCreative, setChangeObjCreative] = useState<Creative | null>(null);
+  const [newObjective, setNewObjective] = useState("");
+  const [changingObj, setChangingObj] = useState(false);
+  const [previewNewCode, setPreviewNewCode] = useState("");
 
   useEffect(() => {
     if (!user?.id || user.role !== "CLIENTE") return;
@@ -101,7 +109,69 @@ const ProductDetail = () => {
       });
   }, [user?.id, user?.role]);
 
+  useEffect(() => {
+    if (!changeObjCreative || !newObjective || newObjective === changeObjCreative.objective) {
+      setPreviewNewCode("");
+      return;
+    }
+    computeNextCode(changeObjCreative, newObjective).then(setPreviewNewCode);
+  }, [newObjective, changeObjCreative, computeNextCode]);
+
   const objectiveCategories = ["Todos", "Vendas", "Conteúdo", "Lembrete", "Remarketing", "Captação", "Carrinho Aberto", "Outro"];
+  const changeableObjectives = ["Vendas", "Remarketing", "Conteúdo", "Captação", "Lembrete", "Carrinho Aberto", "Outro"];
+
+  const getTypePrefix = (type: string) => {
+    if (type === "PHOTO") return "ADF";
+    if (type === "VIDEO") return "ADV";
+    if (type === "CAROUSEL") return "ADC";
+    return "";
+  };
+
+  const computeNextCode = useCallback(async (creative: Creative, objective: string) => {
+    if (!id || !product) return "";
+    const typePrefix = getTypePrefix(creative.type);
+    const sequenceRegex = new RegExp(`${typePrefix}(\\d+)$`);
+    const { data: existing } = await supabase
+      .from("creatives")
+      .select("code")
+      .eq("product_id", id)
+      .eq("objective", objective)
+      .eq("type", creative.type)
+      .neq("id", creative.id);
+    const maxSeq = (existing || []).reduce((max, c) => {
+      const match = c.code?.match(sequenceRegex);
+      if (!match) return max;
+      const n = parseInt(match[1], 10);
+      return isNaN(n) ? max : Math.max(max, n);
+    }, 0);
+    return `${product.acronym} | ${objective} | ${typePrefix}${(maxSeq + 1).toString().padStart(3, "0")}`;
+  }, [id, product]);
+
+  const handleChangeObjective = async () => {
+    if (!changeObjCreative || !newObjective || !id) return;
+    setChangingObj(true);
+    try {
+      const newCode = await computeNextCode(changeObjCreative, newObjective);
+      const { error } = await supabase
+        .from("creatives")
+        .update({ objective: newObjective, code: newCode })
+        .eq("id", changeObjCreative.id);
+      if (error) {
+        toast({ title: "Erro ao alterar objetivo", description: error.message, variant: "destructive" });
+      } else {
+        setCreatives(prev => prev.map(c =>
+          c.id === changeObjCreative.id ? { ...c, objective: newObjective, code: newCode } : c
+        ));
+        toast({ title: "Objetivo alterado!", description: `Novo código: ${newCode}` });
+        setChangeObjOpen(false);
+        setChangeObjCreative(null);
+        setNewObjective("");
+        setPreviewNewCode("");
+      }
+    } finally {
+      setChangingObj(false);
+    }
+  };
 
   const fetchData = useCallback(async () => {
     if (!id) return;
@@ -319,14 +389,21 @@ const ProductDetail = () => {
         </DropdownMenuItem>
         {user?.role === "GESTOR" && (
           <>
+            <DropdownMenuItem onClick={() => {
+              setChangeObjCreative(creative);
+              setNewObjective(creative.objective);
+              setChangeObjOpen(true);
+            }}>
+              <Target className="h-4 w-4 mr-2" /> Alterar objetivo
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => toggleStatus(creative.id, creative.status)}>
+              {creative.status === "PUBLISHED" ? "Marcar como Pendente" : "Marcar como Publicado"}
+            </DropdownMenuItem>
             <DropdownMenuItem
               className="text-destructive focus:text-destructive"
               onClick={() => { setDeleteCreativeId(creative.id); setDeleteOpen(true); }}
             >
               <Trash2 className="h-4 w-4 mr-2" /> Excluir
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => toggleStatus(creative.id, creative.status)}>
-              {creative.status === "PUBLISHED" ? "Marcar como Pendente" : "Marcar como Publicado"}
             </DropdownMenuItem>
           </>
         )}
@@ -791,6 +868,57 @@ const ProductDetail = () => {
           creativeCode={timelineCreative.code}
         />
       )}
+
+      {/* Change Objective Dialog */}
+      <Dialog open={changeObjOpen} onOpenChange={(v) => { if (!v) { setChangeObjOpen(false); setChangeObjCreative(null); setNewObjective(""); setPreviewNewCode(""); } }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Target className="h-5 w-5" /> Alterar objetivo
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {changeObjCreative && (
+              <div className="text-sm text-muted-foreground">
+                Criativo atual: <span className="font-mono font-semibold text-foreground">{changeObjCreative.code}</span>
+              </div>
+            )}
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Novo objetivo</label>
+              <Select value={newObjective} onValueChange={setNewObjective}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {changeableObjectives.map((obj) => (
+                    <SelectItem key={obj} value={obj}>{obj}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {previewNewCode && newObjective !== changeObjCreative?.objective && (
+              <div className="rounded-md bg-primary/5 border border-primary/20 p-3 space-y-0.5">
+                <p className="text-xs text-muted-foreground">Novo código gerado:</p>
+                <p className="font-mono font-semibold text-primary">{previewNewCode}</p>
+              </div>
+            )}
+            {newObjective === changeObjCreative?.objective && (
+              <p className="text-xs text-muted-foreground">Selecione um objetivo diferente do atual.</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setChangeObjOpen(false); setChangeObjCreative(null); setNewObjective(""); setPreviewNewCode(""); }}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleChangeObjective}
+              disabled={!newObjective || newObjective === changeObjCreative?.objective || changingObj}
+            >
+              {changingObj ? "Salvando..." : "Confirmar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 };
