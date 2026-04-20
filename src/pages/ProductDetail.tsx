@@ -109,14 +109,6 @@ const ProductDetail = () => {
       });
   }, [user?.id, user?.role]);
 
-  useEffect(() => {
-    if (!changeObjCreative || !newObjective || newObjective === changeObjCreative.objective) {
-      setPreviewNewCode("");
-      return;
-    }
-    computeNextCode(changeObjCreative, newObjective).then(setPreviewNewCode);
-  }, [newObjective, changeObjCreative, computeNextCode]);
-
   const objectiveCategories = ["Todos", "Vendas", "Conteúdo", "Lembrete", "Remarketing", "Captação", "Carrinho Aberto", "Outro"];
   const changeableObjectives = ["Vendas", "Remarketing", "Conteúdo", "Captação", "Lembrete", "Carrinho Aberto", "Outro"];
 
@@ -146,6 +138,14 @@ const ProductDetail = () => {
     }, 0);
     return `${product.acronym} | ${objective} | ${typePrefix}${(maxSeq + 1).toString().padStart(3, "0")}`;
   }, [id, product]);
+
+  useEffect(() => {
+    if (!changeObjCreative || !newObjective || newObjective === changeObjCreative.objective) {
+      setPreviewNewCode("");
+      return;
+    }
+    computeNextCode(changeObjCreative, newObjective).then(setPreviewNewCode);
+  }, [newObjective, changeObjCreative, computeNextCode]);
 
   const handleChangeObjective = async () => {
     if (!changeObjCreative || !newObjective || !id) return;
