@@ -49,37 +49,46 @@ const CreativePreviewDialog = ({ open, onOpenChange, creativeId, creativeCode, c
   const [loadingUrls, setLoadingUrls] = useState(false);
 
   const currentFile = files[currentIndex];
+  const fileKey = currentFile ? (currentFile.file_path || currentFile.id) : "";
 
   useEffect(() => {
     if (!currentFile) return;
-    if (signedUrls[currentFile.file_path]) return; // already cached
+    if (fileKey && signedUrls[fileKey]) return; // already cached
     const fetchUrl = async () => {
       setLoadingUrls(true);
-      const folder = currentFile.file_path.split("/").slice(0, -1).join("/");
-      const filename = currentFile.file_path.split("/").pop() || "";
-      const { data: listed } = await supabase.storage.from("creatives").list(folder, { search: filename });
-      const existsInStorage = listed && listed.length > 0;
+      try {
+        let url: string | null = null;
 
-      let url: string | null = null;
-      if (existsInStorage) {
-        const { data } = await supabase.storage.from("creatives").createSignedUrl(currentFile.file_path, 3600);
-        url = data?.signedUrl ?? null;
-      } else if (currentFile.drive_file_id) {
-        const { data: migrateData } = await supabase.functions.invoke("google-drive-operations", {
-          body: { action: "get_or_migrate_file_url", creative_file_id: currentFile.id },
-        });
-        url = migrateData?.signedUrl ?? null;
-      }
+        if (currentFile.file_path) {
+          const folder = currentFile.file_path.split("/").slice(0, -1).join("/");
+          const filename = currentFile.file_path.split("/").pop() || "";
+          const { data: listed } = await supabase.storage.from("creatives").list(folder, { search: filename });
+          if (listed && listed.length > 0) {
+            const { data } = await supabase.storage.from("creatives").createSignedUrl(currentFile.file_path, 3600);
+            url = data?.signedUrl ?? null;
+          }
+        }
 
-      if (url) {
-        setSignedUrls((prev) => ({ ...prev, [currentFile.file_path]: url! }));
+        if (!url && currentFile.drive_file_id) {
+          const { data: migrateData } = await supabase.functions.invoke("google-drive-operations", {
+            body: { action: "get_or_migrate_file_url", creative_file_id: currentFile.id },
+          });
+          url = migrateData?.signedUrl ?? null;
+        }
+
+        if (url) {
+          setSignedUrls((prev) => ({ ...prev, [fileKey]: url! }));
+        }
+      } catch {
+        // URL fetch failed silently
+      } finally {
+        setLoadingUrls(false);
       }
-      setLoadingUrls(false);
     };
     fetchUrl();
-  }, [currentFile]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentFile, fileKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const currentUrl = currentFile ? signedUrls[currentFile.file_path] : undefined;
+  const currentUrl = currentFile ? signedUrls[fileKey] : undefined;
   const isVideo = creativeType === "VIDEO";
   const isCarousel = creativeType === "CAROUSEL";
 
@@ -156,6 +165,9 @@ const CreativePreviewDialog = ({ open, onOpenChange, creativeId, creativeCode, c
               </>
             )}
           </div>
+        )}
+        {!loadingUrls && currentFile && !currentUrl && (
+          <div className="p-8 text-center text-muted-foreground text-sm">Arquivo não disponível.</div>
         )}
         {!loadingUrls && files.length === 0 && (
           <div className="p-8 text-center text-muted-foreground text-sm">Nenhum arquivo encontrado.</div>
