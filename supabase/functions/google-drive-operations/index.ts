@@ -288,6 +288,59 @@ serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  // Binary chunk upload — bypasses JSON routing, proxies directly to Drive resumable session
+  if (req.headers.get("x-action") === "upload_chunk") {
+    try {
+      const uploadUrl = req.headers.get("x-upload-url");
+      const startByte = parseInt(req.headers.get("x-start-byte") || "0");
+      const totalSize = parseInt(req.headers.get("x-total-size") || "0");
+      const mimeType = req.headers.get("x-file-mime-type") || "application/octet-stream";
+
+      if (!uploadUrl) {
+        return new Response(JSON.stringify({ error: "x-upload-url header required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const chunkBuffer = await req.arrayBuffer();
+      const endByte = startByte + chunkBuffer.byteLength - 1;
+
+      const uploadRes = await fetch(uploadUrl, {
+        method: "PUT",
+        headers: {
+          "Content-Range": `bytes ${startByte}-${endByte}/${totalSize}`,
+          "Content-Type": mimeType,
+        },
+        body: chunkBuffer,
+      });
+
+      if (uploadRes.status === 308) {
+        return new Response(JSON.stringify({ status: "incomplete" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      if (uploadRes.status === 200 || uploadRes.status === 201) {
+        const data = await uploadRes.json();
+        return new Response(JSON.stringify({ status: "complete", driveFileId: data.id }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const errorText = await uploadRes.text().catch(() => "unknown");
+      return new Response(JSON.stringify({ error: `Drive retornou ${uploadRes.status}: ${errorText}` }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    } catch (err: any) {
+      return new Response(JSON.stringify({ error: err.message }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+  }
+
   try {
     const supabase = createClient(supabaseUrl, serviceRoleKey);
     const accessToken = await getAccessToken(supabase);

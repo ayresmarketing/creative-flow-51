@@ -31,19 +31,50 @@ const validateFileSize = (files: File[]): string | null => {
   return null;
 };
 
-async function uploadFileToDrive(file: File, uploadUrl: string): Promise<string> {
-  const response = await fetch(uploadUrl, {
-    method: "PUT",
-    headers: { "Content-Type": file.type || "application/octet-stream" },
-    body: file,
-  });
-  if (!response.ok) {
-    const text = await response.text().catch(() => "");
-    throw new Error(`Falha ao enviar para o Google Drive (${response.status}): ${text}`);
+const DRIVE_CHUNK_SIZE = 4 * 1024 * 1024; // 4 MB — stays within edge function body limit
+
+async function uploadFileToDrive(
+  file: File,
+  uploadUrl: string,
+  authToken: string,
+): Promise<string> {
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+  const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+  const totalSize = file.size;
+  let startByte = 0;
+
+  while (startByte < totalSize) {
+    const end = Math.min(startByte + DRIVE_CHUNK_SIZE, totalSize);
+    const chunkBuffer = await file.slice(startByte, end).arrayBuffer();
+
+    const res = await fetch(`${supabaseUrl}/functions/v1/google-drive-operations`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+        apikey: supabaseKey,
+        "x-action": "upload_chunk",
+        "x-upload-url": uploadUrl,
+        "x-start-byte": startByte.toString(),
+        "x-total-size": totalSize.toString(),
+        "x-file-mime-type": file.type || "application/octet-stream",
+        "Content-Type": "application/octet-stream",
+      },
+      body: chunkBuffer,
+    });
+
+    if (!res.ok) {
+      const msg = await res.text().catch(() => "");
+      throw new Error(`Erro no chunk (${startByte}–${end}): ${msg}`);
+    }
+
+    const result = await res.json();
+    if (result.error) throw new Error(result.error);
+    if (result.status === "complete") return result.driveFileId as string;
+
+    startByte = end;
   }
-  const data = await response.json();
-  if (!data.id) throw new Error("Google Drive não retornou o ID do arquivo");
-  return data.id as string;
+
+  throw new Error("Upload incompleto: nenhuma resposta final do Drive");
 }
 
 interface BulkItem {
@@ -276,6 +307,10 @@ const CreativeUpload = () => {
     setUploadCurrent(0);
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const authToken = session?.access_token;
+      if (!authToken) throw new Error("Sessão expirada. Faça login novamente.");
+
       const currentMaxSequence = await getCurrentMaxSequence();
       const totalItems = bulkMode ? bulkItems.length : 1;
       setUploadTotal(totalItems);
@@ -343,7 +378,7 @@ const CreativeUpload = () => {
             });
             if (sessionErr || !sessionData?.uploadUrl) throw sessionErr ?? new Error("Falha ao criar sessão no Drive");
 
-            const driveFileId = await uploadFileToDrive(bFile, sessionData.uploadUrl);
+            const driveFileId = await uploadFileToDrive(bFile, sessionData.uploadUrl, authToken);
 
             const { error: insertErr } = await supabase.from("creative_files").insert({
               creative_id: creative.id,
@@ -422,7 +457,7 @@ const CreativeUpload = () => {
         });
         if (sessionErr || !sessionData?.uploadUrl) throw sessionErr ?? new Error("Falha ao criar sessão no Drive");
 
-        const driveFileId = await uploadFileToDrive(file, sessionData.uploadUrl);
+        const driveFileId = await uploadFileToDrive(file, sessionData.uploadUrl, authToken);
 
         const { error: fileInsertError } = await supabase.from("creative_files").insert({
           creative_id: creative.id,
