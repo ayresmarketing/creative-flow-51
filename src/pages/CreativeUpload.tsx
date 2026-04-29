@@ -5,8 +5,6 @@ import Layout from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { invokeGoogleDriveOperation } from "@/lib/googleDrive";
-import { sanitizeStorageFileName } from "@/lib/storagePath";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -22,7 +20,7 @@ type CreativeType = "PHOTO" | "VIDEO" | "CAROUSEL";
 type ObjectiveType = "Vendas" | "Remarketing" | "Conteúdo" | "Captação" | "Lembrete" | "Carrinho Aberto";
 type FormatType = "Feed" | "Stories";
 
-const MAX_FILE_SIZE_MB = 500;
+const MAX_FILE_SIZE_MB = 5120; // 5 GB — Google Drive limit
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
 const validateFileSize = (files: File[]): string | null => {
@@ -32,6 +30,21 @@ const validateFileSize = (files: File[]): string | null => {
   }
   return null;
 };
+
+async function uploadFileToDrive(file: File, uploadUrl: string): Promise<string> {
+  const response = await fetch(uploadUrl, {
+    method: "PUT",
+    headers: { "Content-Type": file.type || "application/octet-stream" },
+    body: file,
+  });
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(`Falha ao enviar para o Google Drive (${response.status}): ${text}`);
+  }
+  const data = await response.json();
+  if (!data.id) throw new Error("Google Drive não retornou o ID do arquivo");
+  return data.id as string;
+}
 
 interface BulkItem {
   id: string;
@@ -306,57 +319,43 @@ const CreativeUpload = () => {
             });
           }
 
-          const uploadedFiles: { file_path: string; file_name: string }[] = [];
+          const bulkAllFiles: { file: File; format: string }[] = [
+            { file: item.primaryFile, format: bulkPrimaryFormat as string },
+            ...(item.secondaryFile ? [{ file: item.secondaryFile, format: bulkPrimaryFormat === "Feed" ? "Stories" : "Feed" }] : []),
+          ];
 
-          // Upload primary file
-          const primaryPath = `${id}/${creative.id}/${bulkPrimaryFormat}/${Date.now()}_${sanitizeStorageFileName(item.primaryFile.name)}`;
-          const { error: primaryUploadError } = await supabase.storage.from("creatives").upload(primaryPath, item.primaryFile);
-          if (primaryUploadError) throw primaryUploadError;
+          for (let bfi = 0; bfi < bulkAllFiles.length; bfi++) {
+            const { file: bFile, format: bFormat } = bulkAllFiles[bfi];
 
-          const { error: primaryInsertError } = await supabase.from("creative_files").insert({
-            creative_id: creative.id,
-            file_path: primaryPath,
-            file_name: item.primaryFile.name,
-            format: bulkPrimaryFormat,
-            position: 0,
-            file_size: item.primaryFile.size,
-          });
-          if (primaryInsertError) throw primaryInsertError;
-
-          uploadedFiles.push({ file_path: primaryPath, file_name: item.primaryFile.name });
-
-          // Upload secondary file if exists
-          if (item.secondaryFile) {
-            const secondaryFormat = bulkPrimaryFormat === "Feed" ? "Stories" : "Feed";
-            const secondaryPath = `${id}/${creative.id}/${secondaryFormat}/${Date.now()}_${sanitizeStorageFileName(item.secondaryFile.name)}`;
-            const { error: secondaryUploadError } = await supabase.storage.from("creatives").upload(secondaryPath, item.secondaryFile);
-            if (secondaryUploadError) throw secondaryUploadError;
-
-            const { error: secondaryInsertError } = await supabase.from("creative_files").insert({
-              creative_id: creative.id,
-              file_path: secondaryPath,
-              file_name: item.secondaryFile.name,
-              format: secondaryFormat,
-              position: 0,
-              file_size: item.secondaryFile.size,
+            const { data: sessionData, error: sessionErr } = await supabase.functions.invoke("google-drive-operations", {
+              body: {
+                action: "create_drive_upload_session",
+                productId: id,
+                creativeType,
+                objective,
+                fileName: bFile.name,
+                mimeType: bFile.type || "application/octet-stream",
+                fileSize: bFile.size,
+                creativeCode: code,
+                fileIndex: bfi,
+                totalFiles: bulkAllFiles.length,
+              },
             });
-            if (secondaryInsertError) throw secondaryInsertError;
+            if (sessionErr || !sessionData?.uploadUrl) throw sessionErr ?? new Error("Falha ao criar sessão no Drive");
 
-            uploadedFiles.push({ file_path: secondaryPath, file_name: item.secondaryFile.name });
+            const driveFileId = await uploadFileToDrive(bFile, sessionData.uploadUrl);
+
+            const { error: insertErr } = await supabase.from("creative_files").insert({
+              creative_id: creative.id,
+              file_path: "",
+              file_name: bFile.name,
+              format: bFormat,
+              position: 0,
+              file_size: bFile.size,
+              drive_file_id: driveFileId,
+            });
+            if (insertErr) throw insertErr;
           }
-
-          if (uploadedFiles.length === 0) {
-            throw new Error("Nenhum arquivo válido foi enviado para o criativo");
-          }
-
-          await invokeGoogleDriveOperation({
-            action: "upload_creative",
-            productId: id,
-            creativeType,
-            objective,
-            creativeCode: code,
-            files: uploadedFiles,
-          });
 
           setUploadCurrent(i + 1);
           setUploadProgress(Math.round(((i + 1) / bulkItems.length) * 100));
@@ -401,28 +400,42 @@ const CreativeUpload = () => {
       }
 
       const allFiles: { file: File; format: string; position: number }[] = [];
-      const uploadedFiles: { file_path: string; file_name: string }[] = [];
       feedFiles.forEach((f, i) => allFiles.push({ file: f, format: "Feed", position: i }));
       storiesFiles.forEach((f, i) => allFiles.push({ file: f, format: "Stories", position: i }));
 
       for (let fi = 0; fi < allFiles.length; fi++) {
         const { file, format, position } = allFiles[fi];
-        const filePath = `${id}/${creative.id}/${format}/${Date.now()}_${sanitizeStorageFileName(file.name)}`;
-        const { error: upErr } = await supabase.storage.from("creatives").upload(filePath, file);
-        if (upErr) throw upErr;
+
+        const { data: sessionData, error: sessionErr } = await supabase.functions.invoke("google-drive-operations", {
+          body: {
+            action: "create_drive_upload_session",
+            productId: id,
+            creativeType,
+            objective,
+            fileName: file.name,
+            mimeType: file.type || "application/octet-stream",
+            fileSize: file.size,
+            creativeCode: code,
+            fileIndex: fi,
+            totalFiles: allFiles.length,
+          },
+        });
+        if (sessionErr || !sessionData?.uploadUrl) throw sessionErr ?? new Error("Falha ao criar sessão no Drive");
+
+        const driveFileId = await uploadFileToDrive(file, sessionData.uploadUrl);
 
         const { error: fileInsertError } = await supabase.from("creative_files").insert({
           creative_id: creative.id,
-          file_path: filePath,
+          file_path: "",
           file_name: file.name,
           format,
           position,
           file_size: file.size,
+          drive_file_id: driveFileId,
         });
         if (fileInsertError) throw fileInsertError;
 
-        uploadedFiles.push({ file_path: filePath, file_name: file.name });
-        setUploadProgress(Math.round(((fi + 1) / allFiles.length) * 80));
+        setUploadProgress(Math.round(((fi + 1) / allFiles.length) * 100));
       }
 
       if (roteiroId && creative) {
@@ -436,18 +449,9 @@ const CreativeUpload = () => {
           .eq("id", roteiroId);
       }
 
-      if (uploadedFiles.length === 0) {
+      if (allFiles.length === 0) {
         throw new Error("Nenhum arquivo válido foi enviado para o criativo");
       }
-
-      await invokeGoogleDriveOperation({
-        action: "upload_creative",
-        productId: id,
-        creativeType,
-        objective,
-        creativeCode: code,
-        files: uploadedFiles,
-      });
 
       setUploadCurrent(1);
       setUploadProgress(100);

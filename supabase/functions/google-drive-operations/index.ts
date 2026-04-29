@@ -354,7 +354,58 @@ serve(async (req) => {
         break;
       }
 
+      case "create_drive_upload_session": {
+        const { productId, creativeType, objective, fileName, mimeType, fileSize, creativeCode, fileIndex, totalFiles } = params;
+
+        const { data: productFolder } = await supabase
+          .from("google_drive_folders")
+          .select("folder_id")
+          .eq("product_id", productId)
+          .single();
+
+        if (!productFolder) throw new Error("Pasta do produto não encontrada no Drive");
+
+        const mediaSubfolder = getMediaSubfolder(creativeType);
+        const objFolderId = await findOrCreateFolder(accessToken, productFolder.folder_id, objective);
+        const targetFolderId = await findOrCreateFolder(accessToken, objFolderId, mediaSubfolder);
+
+        const driveFileName = buildCreativeDriveFileName(
+          creativeCode,
+          fileName,
+          fileIndex ?? 0,
+          totalFiles ?? 1,
+        );
+
+        const initHeaders: Record<string, string> = {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json; charset=UTF-8",
+          "X-Upload-Content-Type": mimeType || "application/octet-stream",
+        };
+        if (fileSize) initHeaders["X-Upload-Content-Length"] = `${fileSize}`;
+
+        const initRes = await fetch(
+          "https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&supportsAllDrives=true",
+          {
+            method: "POST",
+            headers: initHeaders,
+            body: JSON.stringify({ name: driveFileName, parents: [targetFolderId] }),
+          }
+        );
+
+        if (!initRes.ok) {
+          const errorData = await initRes.json().catch(() => ({}));
+          throw new Error(`Erro ao criar sessão de upload no Drive: ${JSON.stringify(errorData)}`);
+        }
+
+        const uploadUrl = initRes.headers.get("location");
+        if (!uploadUrl) throw new Error("Google Drive não retornou a URL de upload");
+
+        result = { uploadUrl };
+        break;
+      }
+
       case "upload_creative": {
+        // Legacy: kept for migration/resubmit flows that pass file_path from Supabase Storage
         const { productId, creativeType, objective, files, creativeCode, replaceExisting } = params;
 
         const { data: productFolder } = await supabase
@@ -365,9 +416,7 @@ serve(async (req) => {
 
         if (!productFolder) throw new Error("Pasta do produto não encontrada no Drive");
 
-        // Navigate: Product > Objective > MediaType
         const mediaSubfolder = getMediaSubfolder(creativeType);
-
         const objFolderId = await findOrCreateFolder(accessToken, productFolder.folder_id, objective);
         const targetFolderId = await findOrCreateFolder(accessToken, objFolderId, mediaSubfolder);
 
@@ -378,7 +427,6 @@ serve(async (req) => {
         const uploadedIds: string[] = [];
         for (let i = 0; i < files.length; i++) {
           const file = files[i];
-
           const storageSource = await getCreativeStorageSource(supabase, file.file_path);
           const driveFileName = buildCreativeDriveFileName(
             creativeCode,
@@ -386,7 +434,6 @@ serve(async (req) => {
             i,
             files.length,
           );
-
           const driveFileId = await uploadFileResumable(
             accessToken,
             driveFileName,
@@ -551,7 +598,6 @@ serve(async (req) => {
       }
 
       case "get_or_migrate_file_url": {
-        // Returns a Supabase Storage signed URL, migrating from Drive if needed
         const { creative_file_id } = params;
 
         const { data: cf } = await supabase
@@ -562,40 +608,23 @@ serve(async (req) => {
 
         if (!cf) throw new Error("creative_file não encontrado");
 
-        // Check if file exists in Storage
-        const { data: storageCheck } = await supabase.storage
-          .from("creatives")
-          .list(cf.file_path.split("/").slice(0, -1).join("/"), {
-            search: cf.file_path.split("/").pop(),
-          });
-
-        const existsInStorage = storageCheck && storageCheck.length > 0;
-
-        if (!existsInStorage && cf.drive_file_id) {
-          // Download from Drive and upload to Storage
-          const driveRes = await fetch(
-            `https://www.googleapis.com/drive/v3/files/${cf.drive_file_id}?alt=media&supportsAllDrives=true`,
-            { headers: { Authorization: `Bearer ${accessToken}` } }
-          );
-
-          if (!driveRes.ok) throw new Error("Falha ao baixar arquivo do Drive");
-
-          const contentType = driveRes.headers.get("content-type") || "application/octet-stream";
-          const fileBytes = new Uint8Array(await driveRes.arrayBuffer());
-
-          const { error: uploadError } = await supabase.storage
-            .from("creatives")
-            .upload(cf.file_path, fileBytes, { contentType, upsert: true });
-
-          if (uploadError) throw new Error(`Falha ao enviar para Storage: ${uploadError.message}`);
+        // Prefer Drive: return a direct download URL using the current access token
+        if (cf.drive_file_id) {
+          const url = `https://www.googleapis.com/drive/v3/files/${cf.drive_file_id}?alt=media&supportsAllDrives=true&access_token=${accessToken}`;
+          result = { signedUrl: url };
+          break;
         }
 
-        // Return signed URL from Storage
-        const { data: signedData } = await supabase.storage
-          .from("creatives")
-          .createSignedUrl(cf.file_path, 3600);
+        // Fallback for old files stored in Supabase Storage
+        if (cf.file_path) {
+          const { data: signedData } = await supabase.storage
+            .from("creatives")
+            .createSignedUrl(cf.file_path, 3600);
+          result = { signedUrl: signedData?.signedUrl ?? null };
+          break;
+        }
 
-        result = { signedUrl: signedData?.signedUrl || null };
+        result = { signedUrl: null };
         break;
       }
 
