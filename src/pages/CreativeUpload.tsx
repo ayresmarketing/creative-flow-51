@@ -22,6 +22,17 @@ type CreativeType = "PHOTO" | "VIDEO" | "CAROUSEL";
 type ObjectiveType = "Vendas" | "Remarketing" | "Conteúdo" | "Captação" | "Lembrete" | "Carrinho Aberto";
 type FormatType = "Feed" | "Stories";
 
+const MAX_FILE_SIZE_MB = 500;
+const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+
+const validateFileSize = (files: File[]): string | null => {
+  const oversized = files.find((f) => f.size > MAX_FILE_SIZE_BYTES);
+  if (oversized) {
+    return `O arquivo "${oversized.name}" excede o limite de ${MAX_FILE_SIZE_MB}MB (${(oversized.size / (1024 * 1024)).toFixed(1)}MB).`;
+  }
+  return null;
+};
+
 interface BulkItem {
   id: string;
   primaryFile: File;
@@ -157,7 +168,12 @@ const CreativeUpload = () => {
     const fileArray = Array.from(selectedFiles);
     const maxFiles = getMaxFiles();
     if (fileArray.length > maxFiles) {
-      alert(`Máximo de ${maxFiles} arquivo(s) permitido(s)`);
+      toast({ title: `Máximo de ${maxFiles} arquivo(s) permitido(s)`, variant: "destructive" });
+      return;
+    }
+    const sizeError = validateFileSize(fileArray);
+    if (sizeError) {
+      toast({ title: "Arquivo muito grande", description: sizeError, variant: "destructive" });
       return;
     }
     if (target === "feed") setFeedFiles(fileArray);
@@ -190,6 +206,11 @@ const CreativeUpload = () => {
   const handleBulkPrimaryFiles = (fileList: FileList | null) => {
     if (!fileList) return;
     const files = Array.from(fileList);
+    const sizeError = validateFileSize(files);
+    if (sizeError) {
+      toast({ title: "Arquivo muito grande", description: sizeError, variant: "destructive" });
+      return;
+    }
     const newItems: BulkItem[] = files.map((f) => ({
       id: crypto.randomUUID(),
       primaryFile: f,
@@ -199,6 +220,13 @@ const CreativeUpload = () => {
   };
 
   const handleBulkSecondaryFile = (itemId: string, file: File | null) => {
+    if (file) {
+      const sizeError = validateFileSize([file]);
+      if (sizeError) {
+        toast({ title: "Arquivo muito grande", description: sizeError, variant: "destructive" });
+        return;
+      }
+    }
     setBulkItems((prev) => prev.map((item) =>
       item.id === itemId ? { ...item, secondaryFile: file } : item
     ));
