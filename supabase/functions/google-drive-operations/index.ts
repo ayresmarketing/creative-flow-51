@@ -311,6 +311,7 @@ serve(async (req) => {
         headers: {
           "Content-Range": `bytes ${startByte}-${endByte}/${totalSize}`,
           "Content-Type": mimeType,
+          "Content-Length": chunkBuffer.byteLength.toString(),
         },
         body: chunkBuffer,
       });

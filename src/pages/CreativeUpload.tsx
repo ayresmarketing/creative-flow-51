@@ -37,6 +37,7 @@ async function uploadFileToDrive(
   file: File,
   uploadUrl: string,
   authToken: string,
+  onProgress?: (bytesUploaded: number) => void,
 ): Promise<string> {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
   const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
@@ -56,25 +57,30 @@ async function uploadFileToDrive(
         "x-upload-url": uploadUrl,
         "x-start-byte": startByte.toString(),
         "x-total-size": totalSize.toString(),
+        "x-chunk-size": chunkBuffer.byteLength.toString(),
         "x-file-mime-type": file.type || "application/octet-stream",
         "Content-Type": "application/octet-stream",
+        "Content-Length": chunkBuffer.byteLength.toString(),
       },
       body: chunkBuffer,
     });
 
     if (!res.ok) {
       const msg = await res.text().catch(() => "");
-      throw new Error(`Erro no chunk (${startByte}–${end}): ${msg}`);
+      throw new Error(`Erro no envio (parte ${Math.floor(startByte / DRIVE_CHUNK_SIZE) + 1}): ${msg}`);
     }
 
     const result = await res.json();
     if (result.error) throw new Error(result.error);
+
+    onProgress?.(chunkBuffer.byteLength);
+
     if (result.status === "complete") return result.driveFileId as string;
 
     startByte = end;
   }
 
-  throw new Error("Upload incompleto: nenhuma resposta final do Drive");
+  throw new Error("Upload incompleto: arquivo não foi finalizado");
 }
 
 interface BulkItem {
@@ -105,6 +111,7 @@ const CreativeUpload = () => {
   const [uploadTotal, setUploadTotal] = useState(0);
   const [uploadCurrent, setUploadCurrent] = useState(0);
   const [uploadDone, setUploadDone] = useState(false);
+  const [uploadStatusMsg, setUploadStatusMsg] = useState("");
 
   // Bulk mode
   const [bulkMode, setBulkMode] = useState(false);
@@ -305,6 +312,7 @@ const CreativeUpload = () => {
     setUploadDone(false);
     setUploadProgress(0);
     setUploadCurrent(0);
+    setUploadStatusMsg("Preparando envio...");
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -316,11 +324,20 @@ const CreativeUpload = () => {
       setUploadTotal(totalItems);
 
       if (bulkMode) {
-        // Bulk submit - create one creative per item
+        // Pre-calculate total bytes for accurate progress
+        const allBulkFiles = bulkItems.flatMap((item) => [
+          item.primaryFile,
+          ...(item.secondaryFile ? [item.secondaryFile] : []),
+        ]);
+        const totalBytes = allBulkFiles.reduce((s, f) => s + f.size, 0);
+        let uploadedBytes = 0;
+
         for (let i = 0; i < bulkItems.length; i++) {
           const item = bulkItems[i];
           const code = buildCreativeCode(currentMaxSequence + i + 1);
           if (!code) throw new Error("Falha ao gerar código do criativo");
+
+          setUploadStatusMsg(`Criativo ${i + 1} de ${bulkItems.length} — preparando...`);
 
           const itemFormats: FormatType[] = [bulkPrimaryFormat as FormatType];
           if (item.secondaryFile) {
@@ -343,7 +360,6 @@ const CreativeUpload = () => {
             throw crErr ?? new Error("Falha ao criar criativo no lote");
           }
 
-          // Add timeline entry if needs approval
           if (needsApproval) {
             await supabase.from("creative_revisions").insert({
               creative_id: creative.id,
@@ -361,6 +377,8 @@ const CreativeUpload = () => {
 
           for (let bfi = 0; bfi < bulkAllFiles.length; bfi++) {
             const { file: bFile, format: bFormat } = bulkAllFiles[bfi];
+            const sizeMB = (bFile.size / (1024 * 1024)).toFixed(1);
+            setUploadStatusMsg(`Enviando criativo ${i + 1} de ${bulkItems.length} (${sizeMB} MB)...`);
 
             const { data: sessionData, error: sessionErr } = await supabase.functions.invoke("google-drive-operations", {
               body: {
@@ -376,9 +394,12 @@ const CreativeUpload = () => {
                 totalFiles: bulkAllFiles.length,
               },
             });
-            if (sessionErr || !sessionData?.uploadUrl) throw sessionErr ?? new Error("Falha ao criar sessão no Drive");
+            if (sessionErr || !sessionData?.uploadUrl) throw sessionErr ?? new Error("Falha ao iniciar envio para o Google Drive");
 
-            const driveFileId = await uploadFileToDrive(bFile, sessionData.uploadUrl, authToken);
+            const driveFileId = await uploadFileToDrive(bFile, sessionData.uploadUrl, authToken, (bytes) => {
+              uploadedBytes += bytes;
+              setUploadProgress(Math.min(99, Math.round((uploadedBytes / totalBytes) * 100)));
+            });
 
             const { error: insertErr } = await supabase.from("creative_files").insert({
               creative_id: creative.id,
@@ -393,9 +414,10 @@ const CreativeUpload = () => {
           }
 
           setUploadCurrent(i + 1);
-          setUploadProgress(Math.round(((i + 1) / bulkItems.length) * 100));
         }
 
+        setUploadProgress(100);
+        setUploadStatusMsg("Tudo enviado com sucesso!");
         setUploadDone(true);
         setTimeout(() => {
           toast({ title: `${bulkItems.length} criativos enviados com sucesso!` });
@@ -404,7 +426,7 @@ const CreativeUpload = () => {
         return;
       }
 
-      // Single submit (existing logic)
+      // Single submit
       setUploadTotal(1);
       setUploadCurrent(0);
       const code = generatedCode || buildCreativeCode(currentMaxSequence + 1);
@@ -423,7 +445,6 @@ const CreativeUpload = () => {
 
       if (crErr || !creative) throw crErr;
 
-      // Add timeline entry if needs approval
       if (needsApproval) {
         await supabase.from("creative_revisions").insert({
           creative_id: creative.id,
@@ -438,8 +459,13 @@ const CreativeUpload = () => {
       feedFiles.forEach((f, i) => allFiles.push({ file: f, format: "Feed", position: i }));
       storiesFiles.forEach((f, i) => allFiles.push({ file: f, format: "Stories", position: i }));
 
+      const totalBytes = allFiles.reduce((s, { file }) => s + file.size, 0);
+      let uploadedBytes = 0;
+
       for (let fi = 0; fi < allFiles.length; fi++) {
         const { file, format, position } = allFiles[fi];
+        const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
+        setUploadStatusMsg(`Enviando ${format} (${sizeMB} MB)...`);
 
         const { data: sessionData, error: sessionErr } = await supabase.functions.invoke("google-drive-operations", {
           body: {
@@ -455,9 +481,12 @@ const CreativeUpload = () => {
             totalFiles: allFiles.length,
           },
         });
-        if (sessionErr || !sessionData?.uploadUrl) throw sessionErr ?? new Error("Falha ao criar sessão no Drive");
+        if (sessionErr || !sessionData?.uploadUrl) throw sessionErr ?? new Error("Falha ao iniciar envio para o Google Drive");
 
-        const driveFileId = await uploadFileToDrive(file, sessionData.uploadUrl, authToken);
+        const driveFileId = await uploadFileToDrive(file, sessionData.uploadUrl, authToken, (bytes) => {
+          uploadedBytes += bytes;
+          setUploadProgress(Math.min(99, Math.round((uploadedBytes / totalBytes) * 100)));
+        });
 
         const { error: fileInsertError } = await supabase.from("creative_files").insert({
           creative_id: creative.id,
@@ -469,8 +498,6 @@ const CreativeUpload = () => {
           drive_file_id: driveFileId,
         });
         if (fileInsertError) throw fileInsertError;
-
-        setUploadProgress(Math.round(((fi + 1) / allFiles.length) * 100));
       }
 
       if (roteiroId && creative) {
@@ -490,12 +517,14 @@ const CreativeUpload = () => {
 
       setUploadCurrent(1);
       setUploadProgress(100);
+      setUploadStatusMsg("Tudo enviado com sucesso!");
       setUploadDone(true);
       setTimeout(() => {
         toast({ title: "Criativo enviado com sucesso!" });
         navigate(`/products/${id}`);
       }, 1200);
     } catch (err: any) {
+      setUploadStatusMsg("");
       toast({ title: "Erro ao enviar criativo", description: err?.message || "Tente novamente.", variant: "destructive" });
     } finally {
       setSubmitting(false);
@@ -1064,15 +1093,14 @@ const CreativeUpload = () => {
             <CardContent className="p-4 space-y-3">
               <div className="flex items-center justify-between text-sm">
                 <span className="font-medium text-foreground">
-                  {uploadDone
-                    ? "✅ Criativos enviados com sucesso!"
-                    : uploadTotal > 1
-                      ? `Enviando... ${uploadCurrent} de ${uploadTotal}`
-                      : `Enviando... ${uploadProgress}%`}
+                  {uploadDone ? "Criativos enviados com sucesso!" : "Enviando para o Google Drive..."}
                 </span>
-                <span className="text-muted-foreground">{uploadProgress}%</span>
+                <span className="text-muted-foreground font-mono">{uploadProgress}%</span>
               </div>
-              <Progress value={uploadProgress} className="h-3" />
+              <Progress value={uploadProgress} className="h-2.5" />
+              {!uploadDone && uploadStatusMsg && (
+                <p className="text-xs text-muted-foreground">{uploadStatusMsg}</p>
+              )}
             </CardContent>
           </Card>
         )}
