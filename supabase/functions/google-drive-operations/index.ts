@@ -288,6 +288,54 @@ serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  // Streaming proxy for Drive files — used by <video> and <img> tags
+  if (req.method === "GET") {
+    const reqUrl = new URL(req.url);
+    const fileId = reqUrl.searchParams.get("stream");
+    const jwt = reqUrl.searchParams.get("jwt");
+
+    if (fileId) {
+      if (!jwt || jwt.split(".").length !== 3) {
+        return new Response("Unauthorized", { status: 401 });
+      }
+      try {
+        const supabase = createClient(supabaseUrl, serviceRoleKey);
+        const accessToken = await getAccessToken(supabase);
+
+        const range = req.headers.get("range");
+        const fetchHeaders: Record<string, string> = {
+          Authorization: `Bearer ${accessToken}`,
+        };
+        if (range) fetchHeaders["Range"] = range;
+
+        const driveRes = await fetch(
+          `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&supportsAllDrives=true`,
+          { headers: fetchHeaders }
+        );
+
+        const resHeaders: Record<string, string> = {
+          "Access-Control-Allow-Origin": "*",
+          "Accept-Ranges": "bytes",
+          "Cache-Control": "private, max-age=3600",
+          "Content-Type": driveRes.headers.get("content-type") || "application/octet-stream",
+        };
+        const cl = driveRes.headers.get("content-length");
+        if (cl) resHeaders["Content-Length"] = cl;
+        const cr = driveRes.headers.get("content-range");
+        if (cr) resHeaders["Content-Range"] = cr;
+        const cd = driveRes.headers.get("content-disposition");
+        if (cd) resHeaders["Content-Disposition"] = cd;
+
+        return new Response(driveRes.body, { status: driveRes.status, headers: resHeaders });
+      } catch (err: any) {
+        return new Response(JSON.stringify({ error: err.message }), {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+    }
+  }
+
   // Binary chunk upload — bypasses JSON routing, proxies directly to Drive resumable session
   if (req.headers.get("x-action") === "upload_chunk") {
     try {
@@ -662,10 +710,11 @@ serve(async (req) => {
 
         if (!cf) throw new Error("creative_file não encontrado");
 
-        // Prefer Drive: return a direct download URL using the current access token
+        // Return our streaming proxy URL so the browser can play/download without CORS issues
         if (cf.drive_file_id) {
-          const url = `https://www.googleapis.com/drive/v3/files/${cf.drive_file_id}?alt=media&supportsAllDrives=true&access_token=${accessToken}`;
-          result = { signedUrl: url };
+          const jwt = (req.headers.get("authorization") || "").replace("Bearer ", "").trim();
+          const streamUrl = `${supabaseUrl}/functions/v1/google-drive-operations?stream=${cf.drive_file_id}&jwt=${encodeURIComponent(jwt)}`;
+          result = { signedUrl: streamUrl };
           break;
         }
 

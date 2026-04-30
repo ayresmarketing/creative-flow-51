@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Volume2, VolumeX } from "lucide-react";
+import { ChevronLeft, ChevronRight, Volume2, VolumeX, Download } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 interface CreativeFile {
@@ -97,7 +97,22 @@ const CreativePreviewDialog = ({ open, onOpenChange, creativeId, creativeCode, c
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[85vh] p-0 overflow-hidden">
-        <DialogTitle className="px-4 pt-4 pb-2 text-sm font-semibold font-sans">{creativeCode}{titleSuffix}</DialogTitle>
+        <div className="flex items-center justify-between px-4 pt-4 pb-2">
+          <DialogTitle className="text-sm font-semibold font-sans">{creativeCode}{titleSuffix}</DialogTitle>
+          {currentUrl && (
+            <a
+              href={currentUrl}
+              download={currentFile?.file_name || "criativo"}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Button variant="ghost" size="sm" className="h-7 gap-1.5 text-xs text-muted-foreground">
+                <Download className="h-3.5 w-3.5" />
+                Baixar
+              </Button>
+            </a>
+          )}
+        </div>
         {loadingUrls && (
           <div className="p-8 text-center text-muted-foreground text-sm flex flex-col items-center gap-2 min-h-[200px] justify-center">
             <span className="h-5 w-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
