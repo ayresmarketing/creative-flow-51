@@ -188,8 +188,12 @@ const ProductDetail = () => {
     setProduct(prodRes.data);
     setBriefingData(briefRes.data?.responses ?? null);
 
-    // Fetch thumbnails for each creative (Storage only — Drive migration happens on preview open)
+    // Fetch thumbnails — Supabase Storage for old files, Drive proxy for new files
     const creativesData = creatRes.data || [];
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+    const { data: { session } } = await supabase.auth.getSession();
+    const jwt = session?.access_token ?? "";
+
     const creativesWithThumbs = await Promise.all(
       creativesData.map(async (c) => {
         try {
@@ -202,12 +206,19 @@ const ProductDetail = () => {
           let thumbnail_url: string | null = null;
           if (files && files.length > 0) {
             const file = files[0];
-            const folder = file.file_path.split("/").slice(0, -1).join("/");
-            const filename = file.file_path.split("/").pop() || "";
-            const { data: listed } = await supabase.storage.from("creatives").list(folder, { search: filename });
-            if (listed && listed.length > 0) {
-              const { data } = await supabase.storage.from("creatives").createSignedUrl(file.file_path, 3600);
-              thumbnail_url = data?.signedUrl ?? null;
+            if (file.file_path) {
+              // Old files in Supabase Storage
+              const folder = file.file_path.split("/").slice(0, -1).join("/");
+              const filename = file.file_path.split("/").pop() || "";
+              const { data: listed } = await supabase.storage.from("creatives").list(folder, { search: filename });
+              if (listed && listed.length > 0) {
+                const { data } = await supabase.storage.from("creatives").createSignedUrl(file.file_path, 3600);
+                thumbnail_url = data?.signedUrl ?? null;
+              }
+            }
+            if (!thumbnail_url && file.drive_file_id && jwt) {
+              // New files — construct proxy URL directly (no extra network call)
+              thumbnail_url = `${supabaseUrl}/functions/v1/google-drive-operations?stream=${file.drive_file_id}&jwt=${encodeURIComponent(jwt)}`;
             }
           }
           return { ...c, thumbnail_url };
